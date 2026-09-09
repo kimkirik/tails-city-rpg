@@ -1,0 +1,78 @@
+export const SIZE = 2048;
+export const REGIONS = [
+ {id:0,name:'솔빛 강변공원',en:'SOLBIT RIVERSIDE',tag:'여정의 시작',level:1,color:'#7ca965',desc:'강가의 작은 공원. 잃어버린 강아지들의 첫 단서가 남아 있다.',neighbors:[-1,1,3,-1]},
+ {id:1,name:'연두 주택가',en:'YEONDU NEIGHBORHOOD',tag:'골목의 소문',level:2,color:'#cfa36f',desc:'익숙한 골목에서 들려오는 낯선 휘파람. 주민들이 도움을 기다린다.',neighbors:[-1,2,4,0]},
+ {id:2,name:'안개솔 숲',en:'MISTPINE FOREST',tag:'숲의 수호자',level:3,color:'#547e64',desc:'도시 외곽의 깊은 숲. 검은 목줄단이 비밀 신호기를 숨겨 놓았다.',neighbors:[-1,-1,5,1]},
+ {id:3,name:'파도빛 항구',en:'TIDELIGHT HARBOR',tag:'수상한 화물',level:4,color:'#649ca9',desc:'푸른 바다 너머로 사라지는 수상한 배. 컨테이너 속 단서를 찾아라.',neighbors:[0,4,-1,-1]},
+ {id:4,name:'철길 공업지대',en:'IRON RAIL DISTRICT',tag:'멈춰 버린 공장',level:5,color:'#a27f68',desc:'기계 소리에 가려진 작은 울음. 목줄단의 공급망이 이곳을 지난다.',neighbors:[1,5,-1,3]},
+ {id:5,name:'블랙테일 본부',en:'BLACKTAIL HEADQUARTERS',tag:'마지막 신호',level:7,color:'#536780',desc:'다섯 신호기를 끄고 도시를 되찾자. 블랙테일의 대장이 기다린다.',neighbors:[2,-1,-1,4]},
+];
+export const BREEDS = [
+ {name:'시바',sprite:1,skill:'불꽃 돌진',type:'용맹',color:'#dd9852',atk:12,hp:76},
+ {name:'사모예드',sprite:2,skill:'눈꽃 바람',type:'수호',color:'#90b9c4',atk:11,hp:88},
+ {name:'보더콜리',sprite:3,skill:'번개 질주',type:'민첩',color:'#7e8aab',atk:15,hp:66},
+ {name:'닥스훈트',sprite:4,skill:'대지 울림',type:'끈기',color:'#b68563',atk:13,hp:82},
+ {name:'웰시코기',sprite:5,skill:'응원의 짖음',type:'활력',color:'#dbad5f',atk:12,hp:90},
+ {name:'허스키',sprite:6,skill:'서리 송곳니',type:'용맹',color:'#7c9ba8',atk:17,hp:78},
+];
+export const ITEMS:Record<string,{name:string;icon:string;desc:string;price:number}> = {
+ treat:{name:'친구 간식',icon:'🦴',desc:'야생 강아지와 친구가 됩니다. 가까이에서 E를 누르세요.',price:35},
+ potion:{name:'회복 주스',icon:'🧃',desc:'현재 동료의 체력을 45 회복합니다.',price:45},
+ berry:{name:'산딸기',icon:'🍓',desc:'현재 동료의 체력을 20 회복합니다.',price:15},
+ revive:{name:'든든한 도시락',icon:'🍱',desc:'현재 동료를 완전히 회복하고 다시 일으킵니다.',price:90},
+};
+export type Dog={id:string;name:string;breed:number;level:number;xp:number;hp:number;maxHp:number;atk:number;bond:number};
+export type Slot={item:string;qty:number}|null;
+export type Enemy={id:string;name:string;hp:number;maxHp:number;atk:number;captain:boolean;region:number};
+export type Battle={enemy:Enemy;turn:number;cooldown:number;log:string[]};
+export type GameState={version:1;region:number;x:number;y:number;coins:number;capacity:number;bag:Slot[];dogs:Dog[];active:string;defeated:string[];recruited:string[];looted:string[];visited:number[];battle:Battle|null;steps:number;won:boolean;seconds:number};
+export type Entity={id:string;kind:'dog'|'enemy'|'shop'|'rest'|'loot';name:string;x:number;y:number;breed?:number;captain?:boolean};
+export function makeDog(id:string,name:string,breed:number,level=1):Dog {const b=BREEDS[breed];return {id,name,breed,level,xp:0,hp:b.hp+(level-1)*10,maxHp:b.hp+(level-1)*10,atk:b.atk+(level-1)*3,bond:1};}
+export function newGame():GameState {return {version:1,region:0,x:1024,y:1190,coins:320,capacity:25,bag:[{item:'treat',qty:5},{item:'potion',qty:4},{item:'berry',qty:3},{item:'revive',qty:1},...Array(21).fill(null)],dogs:[makeDog('starter','콩이',0,2)],active:'starter',defeated:[],recruited:[],looted:[],visited:[0],battle:null,steps:0,won:false,seconds:0};}
+export function currentDog(s:GameState){return s.dogs.find(d=>d.id===s.active)!;}
+export function countItem(s:GameState,id:string){return s.bag.reduce((n,v)=>n+(v?.item===id?v.qty:0),0);}
+export function putItem(s:GameState,id:string,qty=1):boolean {const free=s.bag.reduce((n,v)=>n+(!v?9:v.item===id?9-v.qty:0),0);if(free<qty)return false;for(let i=0;i<s.bag.length&&qty>0;i++){const v=s.bag[i];if(v?.item===id&&v.qty<9){const add=Math.min(9-v.qty,qty);v.qty+=add;qty-=add;}}for(let i=0;i<s.bag.length&&qty>0;i++)if(!s.bag[i]){const add=Math.min(9,qty);s.bag[i]={item:id,qty:add};qty-=add;}return true;}
+function takeItem(s:GameState,id:string){const i=s.bag.findIndex(v=>v?.item===id);if(i<0)return false;if(--s.bag[i]!.qty===0)s.bag[i]=null;return true;}
+export function entities(s:GameState):Entity[]{const r=s.region;const names=['구름','보리','번개','초코','두부','루나'];return [
+ {id:`dog-${r}`,kind:'dog',name:names[r],breed:[1,4,2,3,0,5][r],x:1120,y:1110},
+ {id:`dog-${r}-b`,kind:'dog',name:['쿠키','밤이','솔이','바다','철이','별이'][r],breed:[4,0,5,2,1,3][r],x:1024,y:r===5?1700:360},
+ {id:`enemy-${r}-0`,kind:'enemy',name:'목줄단 정찰병',x:1470,y:1024},
+ {id:`enemy-${r}-1`,kind:'enemy',name:'목줄단 추격자',x:580,y:1024},
+ {id:`captain-${r}`,kind:'enemy',name:r===5?'블랙테일 대장':'목줄단 지역대장',captain:true,x:1024,y:r===5?900:610},
+ {id:`shop-${r}`,kind:'shop',name:'여행 상점',x:890,y:1024},
+ {id:`rest-${r}`,kind:'rest',name:'쉼터',x:1024,y:1350},
+ {id:`loot-${r}`,kind:'loot',name:'보급 상자',x:1800,y:1024},
+ {id:`loot-${r}-b`,kind:'loot',name:'숨겨진 배낭',x:1024,y:1770},
+ ].filter(e=>!s.defeated.includes(e.id)&&!s.recruited.includes(e.id)&&!s.looted.includes(e.id)) as Entity[];}
+export function nearest(s:GameState){return entities(s).map(e=>({...e,d:Math.hypot(e.x-s.x,e.y-s.y)})).filter(e=>e.d<105).sort((a,b)=>a.d-b.d)[0];}
+export function walkable(x:number,y:number,region=-1){const bounds=(region!==5||y>=830)&&x>=24&&x<=SIZE-24&&y>=24&&y<=SIZE-24;const road=Math.abs(x-1024)<87||Math.abs(y-970)<73;const plaza=region===0&&x>860&&x<1190&&y>785&&y<1125;const fountain=region===0&&Math.hypot(x-1024,y-935)<115;return bounds&&(road||plaza)&&!fountain;}
+export type Action={type:'interact';id:string}|{type:'attack'|'skill'|'flee'|'expand'}|{type:'item'|'buy';id:string}|{type:'switch';id:string}|{type:'travel';region:number;gate?:boolean;edge?:number};
+export type Result={state:GameState;message:string;event?:'shop'|'win'|'loss'|'recruit'|'attack'};
+export function act(source:GameState,a:Action):Result {const s=structuredClone(source);let message='';let event:Result['event'];const fail=(m:string)=>({state:source,message:m});
+ if(s.battle&&['interact','expand','buy','travel'].includes(a.type))return fail('전투를 마친 뒤 이용할 수 있어요.');
+ if(a.type==='interact') {const e=entities(s).find(e=>e.id===a.id);if(!e||Math.hypot(e.x-s.x,e.y-s.y)>110)return fail('조금 더 가까이 다가가세요.');
+ if(e.kind==='shop')return {state:s,message:'필요한 물건을 골라 보세요.',event:'shop'};
+ if(e.kind==='rest'){s.dogs.forEach(d=>d.hp=d.maxHp);message='잠깐 쉬었어요. 모든 동료의 체력이 회복되었습니다.';}
+ if(e.kind==='loot'){if(!putItem(s,'potion',2))return fail('가방이 가득 찼어요. 공간을 비워 주세요.');s.looted.push(e.id);s.coins+=60;message='회복 주스 2개와 60 코인을 찾았어요!';}
+ if(e.kind==='dog'){if(!takeItem(s,'treat'))return fail('친구 간식이 필요해요. 상점에서 구할 수 있어요.');s.dogs.push(makeDog(e.id,e.name,e.breed!,Math.max(1,s.region+1)));s.recruited.push(e.id);message=`${e.name}(이)가 새로운 친구가 되었어요! 동료 창에서 함께할 강아지를 고르세요.`;event='recruit';}
+ if(e.kind==='enemy'){if(!s.dogs.some(d=>d.hp>0))return fail('동료들이 지쳤어요. 쉼터에서 쉬어 주세요.');if(e.id==='captain-5'&&s.defeated.filter(id=>id.startsWith('captain-')).length<5)return fail('다른 다섯 지역의 대장을 먼저 쓰러뜨리고 신호기를 꺼야 해요.');if(currentDog(s).hp<=0)s.active=s.dogs.find(d=>d.hp>0)!.id;const hp=(e.captain?90:42)+s.region*(e.captain?27:16);s.battle={enemy:{id:e.id,name:e.name,hp,maxHp:hp,atk:8+s.region*3+(e.captain?3:0),captain:!!e.captain,region:s.region},turn:1,cooldown:0,log:[`${e.name}(이)가 길을 막아섰다!`]};message='동료와 힘을 합쳐 싸우세요.';}
+ }
+ if(a.type==='expand'){const cost=200+(s.capacity-25)*12;if(s.capacity>=100)return fail('최대 100칸까지 확장했습니다.');if(s.coins<cost)return fail(`${cost} 코인이 필요해요.`);s.coins-=cost;s.capacity+=5;s.bag.push(...Array(5).fill(null));message=`가방이 ${s.capacity}칸으로 넓어졌어요!`;}
+ if(a.type==='buy'){if(!ITEMS[a.id])return fail('알 수 없는 아이템입니다.');if(!entities(s).some(e=>e.kind==='shop'&&Math.hypot(e.x-s.x,e.y-s.y)<=110))return fail('여행 상점에 가까이 가세요.');if(s.coins<ITEMS[a.id].price)return fail('코인이 부족해요.');if(!putItem(s,a.id))return fail('가방이 가득 찼어요.');s.coins-=ITEMS[a.id].price;message=`${ITEMS[a.id].name} 1개를 구입했어요.`;}
+ if(a.type==='switch'){const d=s.dogs.find(d=>d.id===a.id);if(!d)return fail('아직 만나지 못한 동료예요.');if(s.battle&&d.hp<=0)return fail('이 동료는 회복이 필요해요.');if(s.active===d.id)return fail('이미 함께하고 있어요.');s.active=d.id;message=`${d.name}(이)가 앞장섭니다!`;if(s.battle)enemyTurn(s);}
+ if(a.type==='item'){if(!ITEMS[a.id])return fail('알 수 없는 아이템입니다.');if(a.id==='treat')return fail('강아지 가까이에서 E를 누르면 간식을 줄 수 있어요.');const d=currentDog(s);if(d.hp===d.maxHp)return fail('이미 체력이 가득 차 있어요.');if(d.hp<=0&&a.id!=='revive')return fail('쓰러진 동료에게는 든든한 도시락을 사용해 주세요.');if(!takeItem(s,a.id))return fail('아이템이 없어요.');d.hp=Math.min(d.maxHp,d.hp+(a.id==='potion'?45:a.id==='berry'?20:d.maxHp));message=`${d.name}(이)의 체력이 회복되었어요.`;if(s.battle){s.battle.log.push(message);enemyTurn(s);}}
+ if(a.type==='attack'||a.type==='skill'){if(!s.battle)return fail('전투 중에 사용할 수 있어요.');if(a.type==='skill'&&s.battle.cooldown>0)return fail(`${s.battle.cooldown}턴 뒤에 기술을 쓸 수 있어요.`);const d=currentDog(s);const damage=d.atk+(a.type==='skill'?18+d.level*2:7);s.battle.enemy.hp=Math.max(0,s.battle.enemy.hp-damage);message=`${d.name}의 ${a.type==='skill'?BREEDS[d.breed].skill:'함께 공격'}! ${damage} 피해`;s.battle.log.push(message);event='attack';if(a.type==='skill')s.battle.cooldown=3;
+ if(s.battle.enemy.hp<=0){const en=s.battle.enemy;const reward=55+en.region*25+(en.captain?100:0);s.coins+=reward;s.defeated.push(en.id);d.xp+=35+en.region*15+(en.captain?30:0);d.bond++;while(d.xp>=d.level*45){d.xp-=d.level*45;d.level++;d.maxHp+=10;d.atk+=3;d.hp=d.maxHp;}s.battle=null;message=`승리! +${reward} 코인 · ${d.name} Lv.${d.level}`;event='win';if(en.id==='captain-5'){s.won=true;message='도시를 되찾았어요! 강아지들과 함께 여섯 지역을 자유롭게 탐험하세요.';}}
+ else enemyTurn(s);
+ }
+ if(a.type==='flee'){if(!s.battle)return fail('진행 중인 전투가 없어요.');s.battle=null;s.y=Math.min(1950,s.y+110);message='안전하게 물러났어요. 회복한 뒤 다시 도전하세요.';}
+ if(a.type==='travel'){if(!REGIONS[a.region])return fail('존재하지 않는 지역입니다.');if(a.gate){const dx=s.x,dy=s.y;const edge=(s.region===5?dy<860:dy<80)?0:dx>SIZE-80?1:dy>SIZE-80?2:dx<80?3:-1;if(edge<0||REGIONS[s.region].neighbors[edge]!==a.region)return fail('출구 가까이로 이동하세요.');s.x=edge===1?80:edge===3?SIZE-80:1024;s.y=edge===2?80:edge===0?SIZE-80:1024;}else{if(!s.visited.includes(a.region))return fail('먼저 연결된 길을 따라 이 지역을 발견하세요.');s.x=1024;s.y=1190;}s.region=a.region;if(a.region===5&&s.y<860)s.y=970;if(!s.visited.includes(a.region))s.visited.push(a.region);message=`${REGIONS[a.region].name}에 도착했어요.`;}
+ if(s.battle){s.battle.log=s.battle.log.slice(-5);if(currentDog(s).hp<=0){const next=s.dogs.find(d=>d.hp>0);if(next){s.active=next.id;s.battle.log.push(`${next.name}(이)가 대신 나섰다!`);}else{s.battle=null;s.region=0;s.x=1024;s.y=1350;s.coins=Math.floor(s.coins*.9);s.dogs.forEach(d=>d.hp=d.maxHp);message='쉼터에서 다시 눈을 떴어요. 동료들은 회복했고 코인을 10% 잃었어요.';event='loss';}}}
+ return {state:s,message,event};
+}
+function enemyTurn(s:GameState){const b=s.battle!;const d=currentDog(s);const damage=Math.max(2,b.enemy.atk-Math.floor(d.level/2));d.hp=Math.max(0,d.hp-damage);b.log.push(`${b.enemy.name}의 반격! ${d.name} -${damage} HP`);b.turn++;b.cooldown=Math.max(0,b.cooldown-1);}
+export function packSave(s:GameState){return JSON.stringify({game:'tails-city',savedAt:new Date().toISOString(),state:s});}
+export function unpackSave(text:string):GameState {if(text.length>200000)throw Error('저장 파일이 너무 큽니다.');const p=JSON.parse(text);const s=p?.state;const int=(v:unknown,min:number,max:number)=>Number.isInteger(v)&&Number(v)>=min&&Number(v)<=max;const ids=(v:unknown,re:RegExp,max:number)=>Array.isArray(v)&&v.length<=max&&new Set(v).size===v.length&&v.every(x=>typeof x==='string'&&re.test(x));if(p.game!=='tails-city'||!s||s.version!==1||!int(s.region,0,5)||!Number.isFinite(s.x)||!Number.isFinite(s.y)||!walkable(s.x,s.y,s.region)||!int(s.coins,0,99999999)||!int(s.capacity,25,100)||(s.capacity-25)%5!==0||!Array.isArray(s.bag)||s.bag.length!==s.capacity||!s.bag.every((v:Slot)=>v===null||(v&&ITEMS[v.item]&&int(v.qty,1,9)))||!Array.isArray(s.dogs)||s.dogs.length<1||s.dogs.length>13||!s.dogs.every((d:Dog)=>d&&typeof d.id==='string'&&/^(starter|dog-[0-5](-b)?)$/.test(d.id)&&typeof d.name==='string'&&d.name.length>0&&d.name.length<=20&&int(d.breed,0,5)&&int(d.level,1,999)&&int(d.xp,0,999999)&&int(d.hp,0,d.maxHp)&&int(d.maxHp,1,99999)&&int(d.atk,1,99999)&&int(d.bond,0,999999))||new Set(s.dogs.map((d:Dog)=>d.id)).size!==s.dogs.length||!s.dogs.some((d:Dog)=>d.id===s.active)||!ids(s.defeated,/^(enemy-[0-5]-[01]|captain-[0-5])$/,18)||!ids(s.recruited,/^dog-[0-5](-b)?$/,12)||!ids(s.looted,/^loot-[0-5](-b)?$/,12)||!Array.isArray(s.visited)||!s.visited.includes(s.region)||!s.visited.every((r:number)=>int(r,0,5))||!int(s.steps,0,999999999)||!int(s.seconds,0,999999999)||typeof s.won!=='boolean')throw Error('테일즈 시티 저장 파일 형식이 올바르지 않습니다.');
+ // Resume saves outside combat so importing cannot inject arbitrary combat objects.
+ return {...s,battle:null} as GameState;
+}
