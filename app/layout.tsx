@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 
@@ -11,6 +11,8 @@ const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
 });
+
+export const viewport: Viewport = {width:'device-width',initialScale:1,viewportFit:'cover',themeColor:'#244734'};
 
 export const metadata: Metadata = {
   title: '테일즈 시티 | 강아지와 떠나는 모험',

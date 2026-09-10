@@ -1,0 +1,2 @@
+import {BREEDS} from '@/lib/game/model';
+export default function Portrait({sprite,size=120}:{sprite:number;size?:number}){return sprite===8?<div className="portrait richi-portrait" role="img" aria-label="리치 · 갈색 암컷 푸들" style={{width:size*.75,height:size}}/>:<div className="portrait" role="img" aria-label={sprite===0?'여행자':sprite===7?'목줄단':BREEDS.find(b=>b.sprite===sprite)?.name} style={{width:size*.75,height:size,backgroundSize:`${size*3}px ${size*2}px`,backgroundPosition:`-${sprite%4*size*.75}px -${Math.floor(sprite/4)*size}px`}} />;}
