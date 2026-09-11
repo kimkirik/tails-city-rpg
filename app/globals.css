@@ -77,3 +77,19 @@
 .music-control>span{flex:1;text-align:left}.music-control small{display:block;margin-top:4px;color:#c8d9b7;font-size:11px}.music-control>b{font-size:12px;color:#bbd68c}.music-control[aria-pressed=false]{opacity:.7}
 .dialog-message{padding:10px 13px;background:#e7efdc;border:1px solid #d2dfc4;border-radius:8px;color:#4a6b47;font-size:13px;line-height:1.6}
 .attack-flash .combat-pets>div{animation:party-lunge .28s ease}@keyframes party-lunge{50%{translate:18px -3px}}
+
+/* Sprite animation and a stage that keeps every attack inside the portrait viewport. */
+.animated-dog-portrait{height:auto;flex-shrink:0;background-repeat:no-repeat;animation:dog-frame-loop 1.36s step-end infinite}
+@keyframes dog-frame-loop{0%,100%{background-position:0% 0%}25%{background-position:33.3333% 0%}50%{background-position:66.6667% 0%}75%{background-position:100% 0%}}
+.action-scene{width:100%;min-height:90px;overflow:hidden;border-radius:16px;background:radial-gradient(ellipse at 75% 33%,#ffedb125,transparent 43%)}
+.battle-stage{display:block;width:100%;height:100%;touch-action:none}
+.move-title{position:absolute;top:8px;left:9px;max-width:65%;padding:8px 12px;border-radius:8px;background:#22492ddd;border:1px solid #f0e6a477;color:#fff5ba;font-size:17px;font-weight:800;letter-spacing:.3px;animation:move-announcement .18s ease;pointer-events:none}
+.move-title small{display:block;margin-top:4px;font-size:12px;color:#d5f4ac}
+@keyframes move-announcement{from{opacity:0;translate:-15px 0}to{opacity:1;translate:0 0}}
+.combat-actions.action-buttons{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.action-buttons>button{min-height:55px;padding:9px 11px;gap:3px 6px;grid-template-columns:19px minmax(0,1fr);font-size:14px}
+.action-buttons>button span{overflow-wrap:anywhere}.action-buttons>button small{grid-column:2;overflow:hidden;text-overflow:ellipsis;font-size:10px}.action-buttons>button svg{width:18px}
+.action-buttons>button:disabled{opacity:.62}.is-acting .action-buttons>button{cursor:wait}.action-battle .combat-enemy-stat{transition:none}
+@media(max-width:400px){.action-buttons>button{grid-template-columns:16px minmax(0,1fr);padding:8px 7px;gap:3px 5px;font-size:13px}.action-buttons>button svg{width:16px}.action-buttons>button small{font-size:9px}.move-title{font-size:14px;padding:7px 9px}}
+@media(orientation:landscape) and (max-height:600px){.action-battle{grid-template-columns:minmax(0,1fr) 220px;grid-template-rows:auto minmax(90px,1fr);padding-top:58px;gap:8px}.action-battle .combat-enemy-stat{grid-column:1;grid-row:1;justify-self:end;width:48%}.action-battle .combat-party-stats{left:14px;top:58px;width:43%}.action-battle .action-scene{grid-column:1;grid-row:2}.action-battle .action-buttons{grid-column:2;grid-row:1 / span 2;grid-template-columns:repeat(2,minmax(0,1fr));align-content:center}.action-battle .action-buttons>button{min-height:56px;font-size:12px;padding:8px}.move-title{font-size:13px}}
+@media(prefers-reduced-motion:reduce){.animated-dog-portrait{animation-duration:2.4s}.move-title{animation:none}}

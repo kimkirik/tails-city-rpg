@@ -18,7 +18,7 @@ Touch or click a destination to move; touch a dog, enemy, entrance or drop to ap
 
 ## Validation
 
-32 model, motion, party and music checks cover saves, corrupt imports, inventory limits, recruitment, connected travel, battle rewards/cooldowns, recovery, a full campaign simulation, progress-preserving migration from the original starter, indoor shop purchases and exits, weapon damage/equipment, safe-village rules, persistent enemy HP with patrol respawning, generous reachable loot drops, partial pickups, saved ground items, bounded merging without quantity loss, movement-driven animation frames, two-pet attack/counterattack/XP behavior, formation limits and fallback, name persistence and migration, stable enemy appearances, original music scores, audio unlock, mute, visibility and teardown. TypeScript compilation and production build are checked separately. Browser UI automation was not requested and was not run. Optional WebMCP read/panel tools feature-detect document.modelContext; no supported live validation context was available, so those optional tools are not claimed as verified.
+38 model, motion, party, music and battle-animation checks cover saves, corrupt imports, inventory limits, recruitment, connected travel, battle rewards/cooldowns, recovery, a full campaign simulation, progress-preserving migration from the original starter, indoor shop purchases and exits, weapon damage/equipment, safe-village rules, persistent enemy HP with patrol respawning, generous reachable loot drops, partial pickups, saved ground items, bounded merging without quantity loss, movement-driven animation frames, two-pet attack/counterattack/XP behavior, formation limits and fallback, name persistence and migration, stable enemy appearances, original music scores, audio unlock, mute, visibility and teardown, impact-timed health, turn reservation, duplicate-tap protection, tail attacks, four-direction spins, and attack bounds on short and tall stages. TypeScript compilation and production build are checked separately. Browser UI automation was not requested and was not run. Optional WebMCP read/panel tools feature-detect document.modelContext; no supported live validation context was available, so those optional tools are not claimed as verified.
 
 ## Art
 
@@ -27,3 +27,9 @@ Six individual 1254×1254px region maps (about six times the original pixels per
 ## Music
 
 Two original eight-bar retro chip compositions run through Web Audio: a bright 108 BPM exploration theme and a tense 156 BPM battle theme. Square-wave lead, triangle arpeggios/bass and synthesized percussion use scheduled envelopes. The first interaction unlocks playback, battle transitions crossfade between tracks, the music toggle persists locally, and hidden tabs suspend audio. No external recordings or music services are used. Effect sounds have a separate toggle.
+
+## Companion animation and battle action
+
+All seven breeds have four-direction, four-phase sprite sheets. The six added breed atlases use 1024×1024 RGBA frames with aligned feet, original coat colors and alternating paws/tails. Field companions animate from actual movement; wild friends, portraits and battle stances also move. Generation prompts are in docs/dog-motion-prompts.json.
+
+Combat now plays a complete reserved turn: the lead runs, spins for a tail strike or leaps for its breed skill, the second dog follows with a separate hit, and the enemy approaches to retaliate. Damage numbers, HP changes, motion trails, impact flashes and defeat fades follow the same timing. A final blow finishes visibly before awarding coins and persistent ground loot; repeated taps cannot execute another turn during the sequence. Existing save formats and attack damage remain compatible.
