@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import {MessageCircle,Map,UserRound,Backpack,PawPrint,Save,X,Send,Volume2,VolumeX,Plus,Minus,BookOpen,HelpCircle,ChevronRight,Footprints,Music2} from 'lucide-react';
+import {MessageCircle,Map,UserRound,Backpack,PawPrint,Save,X,Send,Volume2,VolumeX,Plus,Minus,BookOpen,HelpCircle,ChevronRight,Footprints,Music2,Download} from 'lucide-react';
 import {Tabs,TabsList,TabsTrigger} from '@/components/ui/tabs';
 import {Input} from '@/components/ui/input';
 import {Progress} from '@/components/ui/progress';
@@ -9,8 +9,8 @@ import TravelerPreview from './traveler-preview';
 import {MAP_FRAMES} from '@/lib/game/maps';
 export type AdventureMessage={id:string;text:string;author:string;time:string;kind:'system'|'memo'};
 type Layer='chat'|'map'|'status';
-type OpenPanel='wardrobe'|'map'|'bag'|'dogs'|'journal'|'save'|'help';
-export default function AdventureHUD({state,messages,notice,onMessage,onAction,onOpen,zoom,onZoom,running,onRunning,sound,onSound,music,onMusic,musicLabel,saveStatus}:{state:GameState;messages:AdventureMessage[];notice:string;onMessage:(text:string)=>void;onAction:(a:Action)=>unknown;onOpen:(p:OpenPanel)=>void;zoom:number;onZoom:(n:number)=>void;running:boolean;onRunning:()=>void;sound:boolean;onSound:()=>void;music:boolean;onMusic:()=>void;musicLabel:string;saveStatus:string}){
+type OpenPanel='install'|'wardrobe'|'map'|'bag'|'dogs'|'journal'|'save'|'help';
+export default function AdventureHUD({state,messages,notice,onMessage,onAction,onOpen,zoom,onZoom,running,onRunning,sound,onSound,music,onMusic,musicLabel,saveStatus,installed}:{installed:boolean;state:GameState;messages:AdventureMessage[];notice:string;onMessage:(text:string)=>void;onAction:(a:Action)=>unknown;onOpen:(p:OpenPanel)=>void;zoom:number;onZoom:(n:number)=>void;running:boolean;onRunning:()=>void;sound:boolean;onSound:()=>void;music:boolean;onMusic:()=>void;musicLabel:string;saveStatus:string}){
  const [layer,setLayer]=useState<Layer|null>(null),[draft,setDraft]=useState(''),[name,setName]=useState(state.playerName),[lastRead,setLastRead]=useState('');const log=useRef<HTMLDivElement>(null);
  const latest=messages.at(-1),unread=!!latest&&latest.id!==lastRead,party=partyDogs(state),region=REGIONS[state.region];
  useEffect(()=>setName(state.playerName),[state.playerName]);
@@ -19,6 +19,7 @@ export default function AdventureHUD({state,messages,notice,onMessage,onAction,o
  const indoors=state.place==='shop',[fw,fh]=indoors?[1254,1254]:MAP_FRAMES[state.region];
  return <div className="adventure-hud">
   <div className="field-hud-top"><button className="traveler-badge" onClick={()=>toggle('status')} aria-label="플레이어 상태와 이름 변경"><UserRound size={18}/><strong>{state.playerName}</strong></button><button className="location-badge" onClick={()=>toggle('map')}><Map size={16}/><span>{indoors?'여행 상점':region.name}</span></button><span className="wallet-badge">◈ {state.coins.toLocaleString()}</span></div>
+  {!installed&&!state.battle&&<button className="install-launch" onClick={()=>onOpen('install')} aria-label="게임 설치 · 홈 화면에 추가" title="게임 설치"><Download size={20}/><span>설치</span></button>}
   {!layer&&notice&&!state.battle&&<button className="message-peek" onClick={()=>setLayer('chat')} aria-label="메시지 기록 열기"><MessageCircle size={16}/><span>{notice}</span></button>}
   {layer&&<section data-game-input className={`hud-layer ${state.battle?'over-battle':''}`} aria-label="메시지 지도 상태 레이어"><div className="hud-layer-head"><Tabs value={layer} onValueChange={v=>setLayer(v as Layer)}><TabsList><TabsTrigger value="chat">메시지</TabsTrigger><TabsTrigger value="map">미니맵</TabsTrigger><TabsTrigger value="status">상태</TabsTrigger></TabsList></Tabs><button className="close-layer" onClick={()=>setLayer(null)} aria-label="레이어 닫기"><X size={19}/></button></div>
    {layer==='chat'&&<><div className="chat-tools"><button onClick={()=>onOpen('help')}><HelpCircle size={14}/>도움말</button><button onClick={()=>onOpen('journal')}><BookOpen size={14}/>모험 일지</button></div><div className="adventure-chat" ref={log} role="log" aria-label="모험 메시지">{messages.map(m=><div className={`chat-line ${m.kind}`} key={m.id}><div><strong>{m.author}</strong><time>{m.time}</time></div><p>{m.text}</p></div>)}</div><form className="chat-compose" onSubmit={e=>{e.preventDefault();if(!draft.trim())return;onMessage(draft.trim());setDraft('');}}><Input aria-label="모험 메모" placeholder="모험 메모 남기기" value={draft} maxLength={300} onChange={e=>setDraft(e.target.value)}/><button type="submit" disabled={!draft.trim()} aria-label="메모 남기기"><Send size={18}/></button></form></>}

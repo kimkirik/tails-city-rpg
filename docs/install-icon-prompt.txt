@@ -1,0 +1,9 @@
+Use case: stylized-concept
+Asset type: 1024 x 1024 square launcher icon artwork for the Korean retro RPG Tails City.
+Input images: Image 1 is a character identity and pixel-art style reference only.
+Primary request: Create exactly one finished app icon featuring Richi, the lovable brown FEMALE curly poodle in the reference. Preserve her recognizable warm chestnut/copper curly fur, long floppy fluffy ears, dark round sparkling eyes, caramel muzzle and eyebrows, tiny black nose, and joyful pink tongue. Show only her head and shoulders, centered, with a confident happy expression. Include a simple forest-green collar visible just below her chin.
+Style/medium: Polished retro RPG pixel-art illustration consistent with the reference, deliberate crisp chunky pixel clusters and dark pixel outlines, simplified face details that read clearly at 48 pixels.
+Scene/backdrop: Fully opaque forest green #244734 reaching all four square edges, with a subtle warm gold circular glow directly behind the poodle. Do not copy the reference checkerboard.
+Composition/framing: Full-bleed square canvas with no baked-in corner rounding or icon container. The ENTIRE poodle silhouette, including both ears, top curls and shoulders, must fit inside the central 70% of the image, with at least 15% empty green margin on every side. Keep every essential identifying feature in the central maskable-safe circle. Her head should dominate the portrait; shoulders end neatly within the safe region.
+Lighting/mood: Warm, friendly, confident and adventurous; strong clear silhouette.
+Constraints: One poodle only. No letters, numbers, wordmarks, typography, UI, watermarks, frame, extra characters, or decorative props. No transparency, no rounded corners, no full body. Render exactly 1024 x 1024 pixels.
