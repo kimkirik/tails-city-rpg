@@ -1,3 +1,4 @@
+import {drawTraveler} from './traveler-art';
 import {enemyLook} from './enemies';
 import {SIZE,REGIONS,BREEDS,ITEMS,WEAPONS,entities,partyDogs,nearest,enemyStats,type GameState} from './model';
 import {MAP_FRAMES} from './maps';
@@ -25,7 +26,7 @@ export function render(c:CanvasRenderingContext2D,s:GameState,v:View,art:Art,t:n
  else if(e.kind==='merchant'||e.kind==='exit'){label(c,e.kind==='merchant'?'상인 미로 · 포션 / 무기':'↓ 밖으로 나가기',p.x,p.y-28,'#fff4d6','#61472de8');}
  else {const icon=e.kind==='rest'?'⛺':'🎒';c.font=`${32*z}px Arial`;c.textAlign='center';c.fillText(icon,p.x,p.y);label(c,e.name,p.x,p.y+21);}
  if(near?.id===e.id){c.strokeStyle='#fff8ce';c.lineWidth=2;c.beginPath();c.ellipse(p.x,p.y,26*z,10*z,0,0,Math.PI*2);c.stroke();}
- }else if(entry.kind==='player'){const p=screen(s.x,s.y);c.fillStyle='#27392c33';c.beginPath();c.ellipse(p.x,p.y,16*z,6*z,0,0,7);c.fill();if(!animatedSprite(c,art.playerWalk,p.x,p.y,110*z,v.playerMotion))sprite(c,art.sprites,0,p.x,p.y,110*z);label(c,s.playerName,p.x,p.y+19,'#315143','#fffbedef');}
+ }else if(entry.kind==='player'){const p=screen(s.x,s.y);c.fillStyle='#27392c33';c.beginPath();c.ellipse(p.x,p.y,16*z,6*z,0,0,7);c.fill();if(!drawTraveler(c,s.appearance,p.x,p.y,110*z,v.playerMotion)&&!animatedSprite(c,art.playerWalk,p.x,p.y,110*z,v.playerMotion))sprite(c,art.sprites,0,p.x,p.y,110*z);label(c,s.playerName,p.x,p.y+19,'#315143','#fffbedef');}
  else if(entry.kind==='pet'&&'slot'in entry){const slot=entry.slot,pet=party[slot],motion=slot===0?v.petMotion:v.secondMotion,p=screen(slot===0?v.petX:v.secondPetX,slot===0?v.petY:v.secondPetY);const breed=BREEDS[pet.breed];c.save();if(pet.hp<=0)c.globalAlpha=.55;if(!animatedSprite(c,art.dogWalk[pet.breed],p.x,p.y,86*z,motion,19))sprite(c,art.sprites,breed.sprite,p.x,p.y+(motion.moving?Math.sin(motion.distance*.18)*2:0),81*z,motion.facing===1,art.poodle);c.restore();label(c,pet.name,p.x,p.y+18,'#fff4d5','#8a6945df');}}
 
  const gates=[{x:1024,y:s.region===5?850:70},{x:1978,y:970},{x:1024,y:1978},{x:70,y:970}];if(!indoors)REGIONS[s.region].neighbors.forEach((id,i)=>{if(id<0)return;const p=screen(gates[i].x,gates[i].y);c.strokeStyle='#ffffc899';c.lineWidth=3;c.beginPath();c.arc(p.x,p.y,22+Math.sin(t*.003)*3,0,7);c.stroke();label(c,`${['↑','→','↓','←'][i]} ${REGIONS[id].name}`,p.x,p.y-37,'#fff8de','#2c4c3ce8');});
