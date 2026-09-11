@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   other: {'apple-mobile-web-app-capable':'yes'},
   manifest: '/manifest.webmanifest',
   appleWebApp: {capable: true, title: '테일즈 시티', statusBarStyle: 'black-translucent'},
-  icons: {icon: [{url:'/icons/game-32.png',sizes:'32x32',type:'image/png'},{url:'/icons/game-192.png',sizes:'192x192',type:'image/png'}],apple:[{url:'/apple-touch-icon.png',sizes:'180x180',type:'image/png'}]},
+  icons: {icon: [{url:'/icons/richi-cute-32.png',sizes:'32x32',type:'image/png'},{url:'/icons/richi-cute-192.png',sizes:'192x192',type:'image/png'}],apple:[{url:'/icons/richi-cute-180.png',sizes:'180x180',type:'image/png'}]},
   description: '여섯 지역을 탐험하고 강아지 동료와 함께 도시를 구하는 RPG.',
 };
 

@@ -15,7 +15,7 @@ export default function InstallGame({install,onExport}:{install:ReturnType<typeo
  const request=async()=>{const result=await install.request();setMessage(result==='accepted'?'설치를 요청했어요. 브라우저의 설치 절차를 완료해 주세요.':result==='dismissed'?'설치를 취소했어요. 아래 방법으로 나중에 다시 설치할 수 있어요.':result==='failed'?'설치 창을 열지 못했어요. 아래 안내를 따라 설치해 주세요.':result==='unavailable'?'이 브라우저에서는 아래 안내를 따라 설치해 주세요.':'설치 창에서 선택해 주세요.');};
  const copy=async()=>{try{await navigator.clipboard.writeText(GAME_URL);setCopied(true);}catch{input.current?.focus();input.current?.select();setMessage('주소를 길게 누르거나 복사 단축키로 복사해 주세요.');}};
  return <div className="install-content" data-game-input>
-  <div className="install-identity"><img src="/icons/game-192.png" width={84} height={84} alt="갈색 푸들 리치 게임 아이콘"/><div><strong>테일즈 시티</strong><p>리치와 함께 떠나는 모험</p></div></div>
+  <div className="install-identity"><img src="/icons/richi-cute-192.png" width={84} height={84} alt="갈색 푸들 리치 게임 아이콘"/><div><strong>테일즈 시티</strong><p>리치와 함께 떠나는 모험</p></div></div>
   {install.installed?<p className="install-success" role="status"><Check size={20}/>설치된 게임이에요. 리치 아이콘으로 다시 만나요!</p>:<>
    {install.available&&<button className="primary-button install-primary" disabled={install.pending} onClick={()=>void request()}><Download size={20}/>게임 설치</button>}
    {install.pending&&<p role="status" className="install-note">브라우저의 설치 창에서 선택해 주세요.</p>}
