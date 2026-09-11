@@ -1,51 +1,53 @@
 # Tails City · 테일즈 시티
 
-Korean-language modern dog companion RPG. Six explorable connected regions, twelve recruitable dogs plus Richi, a brown female poodle starter, up to two equipped companions following and assisting attacks, turn-based combat and a complete six-boss campaign. Inventory begins at 25 slots, stacks up to nine, and expands five slots at a time to 100. Three browser save slots, 15-second exploration autosave, JSON export/import with validation.
+[Play the public game](https://tails-city-rpg.kimkirik.chatgpt.site)
 
-Yeondu Village is safe. Other regions contain enemies with visible persistent HP, and roaming patrols return after 30 seconds of exploration. Shops have opening doors and a separate walkable interior; approach the counter to buy supplies or one of three weapons, then use the southern exit. Weapons occupy inventory slots, auto-equip on purchase, and add damage to the joint attack. Older saves receive defaults for these features without losing existing progression.
+A Korean modern pixel RPG starring the traveler and **Richi (리치), a brown female poodle**. Touch destinations or use arrow keys to explore six connected city regions. The world occupies 90% of the portrait viewport, with messages, minimap and status in collapsible layers.
 
-Player and Richi have aligned 16-frame walking sheets (four directions and four phases). Animation follows actual distance traveled, including running and independent pet following, and stops when the actor stops. Normal enemies drop 15–16 items in six or seven piles; captains drop 36, including a weapon. Rewards scatter onto reachable ground, are picked up automatically nearby or by touch, and remain on the ground when inventory fills. Uncollected items persist across travel and saves.
+## Adventure and combat
 
-## Local development
+- Each map only allows travel through connected gates. Closed directions have visible barriers and matching collision; the minimap marks open exits and blocked roads.
+- **Normal attacks are solo actions.** Choose the traveler or one accompanying dog without spending a turn. Only that actor appears and attacks in the solo scene. Tail attacks trade some damage for reduced retaliation; skills have a cooldown; guarding reduces the next counter by 70%.
+- **Team attack is once per battle, available from turn3**, requires a living traveler and at least one living dog, and consumes **two turns**. All eligible actors appear together. A surviving enemy retaliates twice. Damage, HP, motion trails, running/leaping/spinning and defeat rewards share one reserved animation result, preventing duplicate taps.
+- Recruit up to twelve dogs in addition to Richi, with a maximum of two following companions. Each dog has a visible charm requirement. Insufficient charm does not consume a treat. Quest rewards, rescued cats and equipped accessories increase charm.
+- Yeondu Village is safe above ground. Every stage has a raid cave, three guardians, a rescue cat and a distinct dragon. Cave rats, slimes, bats, spiders, golems and mushrooms appear across regions. Dragons telegraph a stronger elemental breath every third turn; the poison dragon can inflict poison. The final dragon requires the first five liberated dragons.
+- Four village NPCs connect ten quests: gather rumors, recover stolen goods, clear cave rats, rescue cats and free the six dragons. Accept and claim quests with the relevant NPC. Progress made before acceptance is retained. Rewards cannot be claimed twice.
+- The original six-captain campaign remains playable. Patrols respawn after45 seconds of exploration. Cave guardians reset on reentry, while freed cats and dragons remain freed.
 
-- `npm install`
-- `npm run dev`
-- `npm run build`
-- `npx tsc --noEmit`
-- `node --test lib/game/*.test.ts` (Node with native TypeScript support)
+## Shops, equipment and saves
 
-Touch or click a destination to move; touch a dog, enemy, entrance or drop to approach and interact. Arrow keys also move the traveler, with normalized diagonals and collision checks. Touch and keyboard take over from each other; typing, dialogs, battles, blur and hidden tabs stop held movement. On-screen directional pads remain removed. The map occupies about 90% of the portrait viewport, with a compact bottom dock. Messages, minimap and status share a collapsible overlay; game events and device-local adventure memos are retained there. Status allows a 1–12-character player name, walk/run, zoom, music and sound toggles. The companion panel manages two followers. B/M/P/J still open menus; Escape closes dialogs. Existing saves receive player-name and party defaults without losing progress.
+Separate convenience-store and armory entrances retain opening-door transitions and walkable interiors. Approach the counter to shop and use the southern exit to leave.
+
+The convenience store sells healing foods/potions, revival lunches, antidotes, traveler/dog upgrades (up to20 per actor), and bags of50/100/200/400/700/1000 slots. Bags start at25 slots; each slot stacks9 items. Buying a larger bag immediately preserves and expands the existing inventory. Inventory pages display at most30 slots.
+
+The armory sells five weapons, four outfits and four accessories with actual attack, maximum HP, defense and charm bonuses. Purchases equip immediately; owned equipment can be changed from the bag outside combat. Free paper-doll appearance customization remains separate: four face/hair choices, three outfit shapes, five colors and an editable1–12 character traveler name.
+
+Normal enemies drop at least15 items in visible piles; captains and dragons drop more, including equipment or upgrades. Nearby loot is picked up automatically. Full bags leave excess loot on the ground. Field and cave drops retain separate locations and survive travel and saves.
+
+Three browser save slots, a15-second exploration autosave and validated JSON import/export preserve progress. Legacy saves migrate to new fields without losing companions, items or completed encounters. All progress remains device-local. The install panel retains the cute Richi PWA icon, native installation where supported, and platform-specific guidance. Initial launch requires a connection; there is no offline service-worker cache.
+
+## Development
+
+```sh
+npm install
+npm run dev
+npx tsc --noEmit
+node --experimental-strip-types --test lib/game/*.test.ts
+npm run build
+```
+
+Node22.13+ is required. The game is hosted independently on Sites. GitHub is a source backup only: no GitHub Pages, runtime raw-file dependencies or Actions-based hosting.
 
 ## Validation
 
-45 model, motion, party, music, customization, keyboard and battle-animation checks cover saves, corrupt imports, inventory limits, recruitment, connected travel, battle rewards/cooldowns, recovery, a full campaign simulation, progress-preserving migration from the original starter, indoor shop purchases and exits, weapon damage/equipment, safe-village rules, persistent enemy HP with patrol respawning, generous reachable loot drops, partial pickups, saved ground items, bounded merging without quantity loss, movement-driven animation frames, two-pet attack/counterattack/XP behavior, formation limits and fallback, name persistence and migration, stable enemy appearances, original music scores, audio unlock, mute, visibility and teardown, impact-timed health, turn reservation, duplicate-tap protection, tail attacks, four-direction spins, and attack bounds on short and tall stages, arrow holds/releases and reset, all 60 appearance save combinations, old-save defaults, invalid appearance rejection, owner weapon contributions on every attack style, and owner finishing blows. TypeScript compilation and production build are checked separately. Browser UI automation was not requested and was not run. Optional WebMCP read/panel tools feature-detect document.modelContext; no supported live validation context was available, so those optional tools are not claimed as verified.
+57 automated checks cover legacy and malformed saves, 1000-slot bags, atomic purchases/rewards, charm, equipment bonuses, capped upgrades, poison/healing targets, one-actor combat, once-per-battle two-turn team attacks, impact timing, duplicate-tap prevention, all map gates, the actual touch pathfinder reaching every field/cave entity, six distinct raid bosses, rescue persistence, NPC quest prerequisites, both campaigns, party limits, keyboard controls, animation bounds, music and install controllers.
 
-## Art
+An earned-supplies raid simulation identified excessive late-game healing loops. Retuned boss HP and damage allow all six raids with the starting team, earned items and affordable equipment: guardians take3–4 actions and bosses9–15 actions in that policy, with1–5 healing actions per boss. This is a reproducible balance check rather than a claim that every player will take the same number of turns.
 
-Six individual 1254×1254px region maps (about six times the original pixels per region), a 1254×1254px shop interior, and a 1774×887px closed/open shop entrance atlas, generated with the built-in image generation tool. Character atlas: eight transparent 384×512px cells. Richi uses a separate 1086×1448px RGBA poodle sprite; edge-connected checkerboard pixels were removed with user-approved image postprocessing while preserving the eyes and fur. Regional textures are framed at render time to keep paths aligned with movement coordinates. High-DPI canvas resolution supports device pixel ratios up to three. Two 1024×1024px RGBA walk atlases were generated from the existing player and Richi references, with authorized background cleanup and consistent cell alignment. Eight enemy variants in public/art/enemies.png have distinct faces, clothing, equipment and silhouettes. Their stable IDs choose the same appearance on the map and in battle. Generated with the built-in image tool using the original character atlas as a style reference; user-authorized background cleanup preserves coat highlights. Prompt in docs/enemies-prompt.txt. Sources in public/art. All game progression is device-local; JSON saves can transfer progress between browsers.
+Browser QA uses an isolated local session. Real touch recruitment, arrow movement, solo Richi and traveler scenes, team attacks, loot, cave entry, NPC acceptance, shops, inventory paging, save/export/import and responsive layouts are checked. Prepared save files are used for targeted boss, large-inventory and map-boundary cases. No test progress is written to players' public saves. See `docs/expansion-verification.md` for the final checks.
 
-## Music
+## Art and music
 
-Two original eight-bar retro chip compositions run through Web Audio: a bright 108 BPM exploration theme and a tense 156 BPM battle theme. Square-wave lead, triangle arpeggios/bass and synthesized percussion use scheduled envelopes. The first interaction unlocks playback, battle transitions crossfade between tracks, the music toggle persists locally, and hidden tabs suspend audio. No external recordings or music services are used. Effect sounds have a separate toggle.
+Original assets generated with the built-in image tool include six high-resolution region maps, shop doors/interior, traveler and seven dog breed walking sheets, eight distinct human enemies, six dragons, twelve cave/NPC/prop sprites and the cave map. User-authorized alpha cleanup, resizing and sprite alignment preserve standalone raster art. New exact prompts: `public/art/raids/prompts.md`; earlier prompts remain in `docs/`.
 
-## Companion animation and battle action
-
-All seven breeds have four-direction, four-phase sprite sheets. The six added breed atlases use 1024×1024 RGBA frames with aligned feet, original coat colors and alternating paws/tails. Field companions animate from actual movement; wild friends, portraits and battle stances also move. Generation prompts are in docs/dog-motion-prompts.json.
-
-Combat now plays a complete reserved turn: the lead runs, spins for a tail strike or leaps for its breed skill, the second dog follows with a separate hit, and the enemy approaches to retaliate. Damage numbers, HP changes, motion trails, impact flashes and defeat fades follow the same timing. A final blow finishes visibly before awarding coins and persistent ground loot; repeated taps cannot execute another turn during the sequence. Existing saves remain compatible. Normal and tail damage totals remain the same; skills now also include the equipped weapon bonus.
-
-## Traveler customization and co-op
-
-Status → 외모·옷 꾸미기 opens a free paper-doll editor. Change the 1–12-character name, choose one of four combined face/hair identities, three outfits and five garment colors. Preview walking and all four directions before applying. Cancel leaves the character unchanged. Saved appearance is shared by the field, status portrait and battle; old saves use the default short-haired traveler and teal jacket without losing progress. Four generated transparent art atlases were aligned by the neck/feet and garment-only recolored into local sheets. Prompts are in docs/traveler-wardrobe-prompts.json.
-
-Every attack now includes the visible traveler and lead dog. The traveler rushes in with a weapon strike (or unarmed swipe), the lead follows while the traveler is still attacking, and a second equipped dog can add a third hit. Damage calculation and animation use the same actor hit list, so HP changes at each impact and a finishing blow suppresses later hits. Enemy retaliation still happens once per turn after the attackers return.
-
-## Installable game icon
-
-The floating 설치 button opens a compact install panel. The app manifest uses a stable root id/start URL, standalone display, Korean title, 192/512px icons and a padded 512px maskable icon. An opaque 180px Apple touch icon and 32px favicon use the same generated Richi illustration. On supporting browsers, a user gesture triggers the captured native install prompt once; cancellation, failed prompts, in-flight duplicate clicks and appinstalled/display-mode changes are handled. Safari/iOS, Android, desktop and embedded browsers receive appropriate manual instructions and a copyable public game address. The install dialog also offers JSON save export to transfer progress if the installed window uses separate storage. Game launch requires a connection; no offline cache or service worker was added.
-
-Four additional install-controller checks cover one-shot prompts, rejection/cancellation, duplicate click prevention, installed state, cleanup and platform guidance. Full original game suite remains available. Browser or operating-system installation was not automated or claimed as tested. Artwork was generated once using built-in image_gen; prompt: docs/install-icon-prompt.txt. Original 1254px artwork was resized to required launcher sizes with extra padding for Android masks.
-
-Implementation references: [MDN installability](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable), [MDN install prompt](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/How_to/Trigger_install_prompt), [Apple home-screen web apps](https://support.apple.com/en-euro/guide/iphone/iphea86e5236/ios).
-
-The current launcher artwork uses a targeted cute Richi revision: rounder puppy face, larger sparkling eyes, plush brown curls, rosy cheeks and a peach-pink bow. The installation panel, favicon, Apple icon and manifest use new richi-cute asset URLs so browser caches can distinguish the new artwork. The app id, start URL and saves are unchanged. Edit prompt: docs/install-icon-cute-prompt.txt.
+Two original Web Audio chip compositions provide exploration (108BPM) and battle (156BPM) music with separate sound effects, first-gesture unlock, mute preferences and hidden-tab suspension. No external music recordings or services are used.
