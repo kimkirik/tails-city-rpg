@@ -569,7 +569,7 @@ export default function Home() {
                 : near.kind === 'shop'
                   ? `${near.name} 들어가기`
                   : near.kind === 'merchant'
-                    ? '물건 구입'
+                    ? '물건 사고팔기'
                     : near.kind === 'npc'
                       ? `${near.name} 대화`
                       : near.kind === 'cave'
@@ -691,8 +691,7 @@ export default function Home() {
                           : panel === 'save'
                             ? '이 브라우저에 저장하거나, 파일로 보관하고 다시 열 수 있어요.'
                             : panel === 'shop'
-                              ? '모험에 필요한 작은 준비. 현재 보유 코인 ' +
-                                state.coins
+                              ? '필요한 물건을 사고, 남는 아이템을 팔아 코인을 모으세요.'
                               : panel === 'journal'
                                 ? '작은 발자국들이 모여 도시를 바꿉니다.'
                                 : '첫 산책을 위한 몇 가지 안내'}

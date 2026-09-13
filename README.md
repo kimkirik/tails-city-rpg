@@ -20,6 +20,8 @@ Separate convenience-store and armory entrances retain opening-door transitions 
 
 The convenience store sells healing foods/potions, revival lunches, antidotes, traveler/dog upgrades (up to20 per actor), and bags of50/100/200/400/700/1000 slots. Bags start at25 slots; each slot stacks9 items. Buying a larger bag immediately preserves and expands the existing inventory. Inventory pages display at most30 slots.
 
+Both counters have Buy/Sell tabs. Sell any held consumable or equipment in a chosen quantity for half its purchase price (rounded down). The preview shows unit and total coins; selling the last equipped copy removes its bonuses and clamps current HP to the new maximum. Expanded bag capacity cannot be sold. Sales free inventory slots and persist in saves.
+
 The armory sells five weapons, four outfits and four accessories with actual attack, maximum HP, defense and charm bonuses. Purchases equip immediately; owned equipment can be changed from the bag outside combat. Free paper-doll appearance customization remains separate: four face/hair choices, three outfit shapes, five colors and an editable1–12 character traveler name.
 
 Normal enemies drop at least15 items in visible piles; captains and dragons drop more, including equipment or upgrades. Nearby loot is picked up automatically. Full bags leave excess loot on the ground. Field and cave drops retain separate locations and survive travel and saves.
@@ -40,7 +42,7 @@ Node22.13+ is required. The game is hosted independently on Sites. GitHub is a s
 
 ## Validation
 
-57 automated checks cover legacy and malformed saves, 1000-slot bags, atomic purchases/rewards, charm, equipment bonuses, capped upgrades, poison/healing targets, one-actor combat, once-per-battle two-turn team attacks, impact timing, duplicate-tap prevention, all map gates, the actual touch pathfinder reaching every field/cave entity, six distinct raid bosses, rescue persistence, NPC quest prerequisites, both campaigns, party limits, keyboard controls, animation bounds, music and install controllers.
+61 automated checks cover legacy and malformed saves, 1000-slot bags, atomic purchases/rewards, charm, equipment bonuses, capped upgrades, poison/healing targets, one-actor combat, once-per-battle two-turn team attacks, impact timing, duplicate-tap prevention, all map gates, the actual touch pathfinder reaching every field/cave entity, six distinct raid bosses, rescue persistence, NPC quest prerequisites, both campaigns, party limits, keyboard controls, animation bounds, music and install controllers.
 
 An earned-supplies raid simulation identified excessive late-game healing loops. Retuned boss HP and damage allow all six raids with the starting team, earned items and affordable equipment: guardians take3–4 actions and bosses9–15 actions in that policy, with1–5 healing actions per boss. This is a reproducible balance check rather than a claim that every player will take the same number of turns.
 

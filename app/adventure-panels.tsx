@@ -25,6 +25,7 @@ import {
   heroStats,
   questProgress,
   countItem,
+  sellPrice,
   actorName,
   partyDogs,
   type GameState,
@@ -224,6 +225,7 @@ export function Shop({ state: s, onAction }: Props) {
           ['boost', '강화'],
         ];
   const [category, setCategory] = useState(armory ? 'weapon' : 'supplies');
+  const [mode, setMode] = useState('buy');
   const stats = heroStats(s);
   const items = Object.entries(ITEMS).filter(
     ([, item]) =>
@@ -238,81 +240,175 @@ export function Shop({ state: s, onAction }: Props) {
   );
   return (
     <>
-      <div className="shop-toolbar">
-        <Tabs value={category} onValueChange={(v) => setCategory(String(v))}>
-          <TabsList>
-            {categories.map(([id, name]) => (
-              <TabsTrigger key={id} value={id}>
-                {name}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      </div>
+      <Tabs value={mode} onValueChange={(v) => setMode(String(v))}>
+        <TabsList className="shop-mode-tabs" aria-label="상점 거래 선택">
+          <TabsTrigger value="buy">사기</TabsTrigger>
+          <TabsTrigger value="sell">팔기</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      {mode === 'buy' && (
+        <div className="shop-toolbar">
+          <Tabs value={category} onValueChange={(v) => setCategory(String(v))}>
+            <TabsList>
+              {categories.map(([id, name]) => (
+                <TabsTrigger key={id} value={id}>
+                  {name}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
+      )}
       <div className="shop-summary">
         ◈ {s.coins.toLocaleString()} ·{' '}
         {armory
           ? `공격 ${stats.attack} / 방어 ${stats.defense} / 매력 ${stats.charm}`
           : `가방 ${s.bag.filter(Boolean).length} / ${s.capacity}칸`}
       </div>
-      <div className="shop-items">
-        {items.map(([id, item]) => {
-          const owned = item.capacity
-            ? s.capacity >= item.capacity
-            : !!item.slot && countItem(s, id) > 0;
-          const current = item.slot
-            ? item.slot === 'weapon'
-              ? s.weapon
-              : s.equipment[item.slot]
-            : null;
-          const before = current ? ITEMS[current] : null;
-          return (
-            <div className="shop-item" key={id}>
-              <span>{item.icon}</span>
-              <div>
-                <h3>{item.name}</h3>
-                <p>{item.desc}</p>
-                {item.slot ? (
+      {mode === 'sell' ? (
+        <SellItems state={s} onAction={onAction} />
+      ) : (
+        <div className="shop-items">
+          {items.map(([id, item]) => {
+            const owned = item.capacity
+              ? s.capacity >= item.capacity
+              : !!item.slot && countItem(s, id) > 0;
+            const current = item.slot
+              ? item.slot === 'weapon'
+                ? s.weapon
+                : s.equipment[item.slot]
+              : null;
+            const before = current ? ITEMS[current] : null;
+            return (
+              <div className="shop-item" key={id}>
+                <span>{item.icon}</span>
+                <div>
+                  <h3>{item.name}</h3>
+                  <p>{item.desc}</p>
+                  {item.slot ? (
+                    <small>
+                      {current ? `현재: ${before!.name}` : '현재: 미착용'}
+                      {item.attack
+                        ? ` · 공격 변화 ${item.attack - (before?.attack ?? 0) >= 0 ? '+' : ''}${item.attack - (before?.attack ?? 0)}`
+                        : ''}
+                    </small>
+                  ) : (
+                    <small>
+                      {item.capacity
+                        ? `현재 ${s.capacity}칸 → ${Math.max(s.capacity, item.capacity)}칸`
+                        : `보유 ${countItem(s, id)}개`}
+                    </small>
+                  )}
+                </div>
+                <button
+                  className="primary-button"
+                  disabled={owned || s.coins < item.price}
+                  onClick={() => onAction({ type: 'buy', id })}
+                >
+                  ◈ {item.price.toLocaleString()}
                   <small>
-                    {current ? `현재: ${before!.name}` : '현재: 미착용'}
-                    {item.attack
-                      ? ` · 공격 변화 ${item.attack - (before?.attack ?? 0) >= 0 ? '+' : ''}${item.attack - (before?.attack ?? 0)}`
-                      : ''}
+                    {owned
+                      ? '보유 중'
+                      : item.capacity
+                        ? '구입 · 확장'
+                        : item.slot
+                          ? '구입 · 장착'
+                          : '1개 구입'}
                   </small>
-                ) : (
-                  <small>
-                    {item.capacity
-                      ? `현재 ${s.capacity}칸 → ${Math.max(s.capacity, item.capacity)}칸`
-                      : `보유 ${countItem(s, id)}개`}
-                  </small>
-                )}
+                </button>
               </div>
-              <button
-                className="primary-button"
-                disabled={owned || s.coins < item.price}
-                onClick={() => onAction({ type: 'buy', id })}
-              >
-                ◈ {item.price.toLocaleString()}
-                <small>
-                  {owned
-                    ? '보유 중'
-                    : item.capacity
-                      ? '구입 · 확장'
-                      : item.slot
-                        ? '구입 · 장착'
-                        : '1개 구입'}
-                </small>
-              </button>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
       <p className="shop-note">
-        {armory
-          ? '장비는 능력치를 올립니다. 외모·옷 꾸미기는 상태 창에서 자유롭게 바꿀 수 있어요.'
-          : '큰 가방은 구입 즉시 확장되며 기존 아이템을 그대로 보관합니다.'}
+        {mode === 'sell'
+          ? '두 상점 모두 아이템을 구매가의 50%에 매입합니다(소수점 버림). 확장한 가방은 판매되지 않아요.'
+          : armory
+            ? '장비는 능력치를 올립니다. 외모·옷 꾸미기는 상태 창에서 자유롭게 바꿀 수 있어요.'
+            : '큰 가방은 구입 즉시 확장되며 기존 아이템을 그대로 보관합니다.'}
       </p>
     </>
+  );
+}
+function SellItems({ state: s, onAction }: Props) {
+  const owned = Object.keys(ITEMS).filter(
+    (id) => sellPrice(id) > 0 && countItem(s, id) > 0,
+  );
+  return (
+    <div className="shop-items" aria-label="판매할 소지품">
+      {owned.length ? (
+        owned.map((id) => (
+          <SellItem key={id} id={id} state={s} onAction={onAction} />
+        ))
+      ) : (
+        <p className="shop-empty">
+          판매할 아이템이 없어요. 모험에서 얻은 전리품을 가져오세요!
+        </p>
+      )}
+    </div>
+  );
+}
+function SellItem({ id, state: s, onAction }: Props & { id: string }) {
+  const [quantity, setQuantity] = useState('1');
+  const item = ITEMS[id],
+    owned = countItem(s, id),
+    price = sellPrice(id);
+  const qty = quantity === '' ? 0 : Math.min(Number(quantity), owned);
+  const valid = Number.isInteger(qty) && qty > 0;
+  const equipped =
+    s.weapon === id ||
+    s.equipment.clothes === id ||
+    s.equipment.accessory === id;
+  return (
+    <article className="shop-item shop-sell-item">
+      <span aria-hidden="true">{item.icon}</span>
+      <div className="sell-description">
+        <h3>{item.name}</h3>
+        <p>
+          보유 {owned}개 · 개당 ◈ {price.toLocaleString()}
+        </p>
+        {equipped && (
+          <small className="sell-equipped">
+            장착 중 · 마지막 1개 판매 시 장착 해제
+          </small>
+        )}
+      </div>
+      <div className="sell-controls">
+        <label>
+          수량
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={owned}
+            step={1}
+            aria-label={`${item.name} 판매 수량`}
+            value={quantity === '' ? '' : qty}
+            onChange={(e) => setQuantity(e.target.value)}
+          />
+        </label>
+        <button
+          className="sell-max"
+          aria-label={`${item.name} 최대 수량 선택`}
+          onClick={() => setQuantity(String(owned))}
+        >
+          최대
+        </button>
+        <button
+          className="primary-button"
+          disabled={!valid}
+          onClick={() => {
+            const result = onAction({ type: 'sell', id, qty });
+            if (countItem(result.state, id) < owned) setQuantity('1');
+          }}
+          aria-label={`${item.name} ${valid ? qty : 0}개 판매`}
+        >
+          <span>+◈ {(valid ? qty * price : 0).toLocaleString()}</span>
+          <small>{valid ? qty : 0}개 팔기</small>
+        </button>
+      </div>
+    </article>
   );
 }
 function QuestCard({

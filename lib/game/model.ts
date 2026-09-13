@@ -369,6 +369,10 @@ export function charmNeeded(id: string, region: number) {
 export function countItem(s: GameState, id: string) {
   return s.bag.reduce((n, v) => n + (v?.item === id ? v.qty : 0), 0);
 }
+export function sellPrice(id: string) {
+  const item = ITEMS[id];
+  return item && !item.capacity ? Math.floor(item.price / 2) : 0;
+}
 export function bagRoom(s: GameState, id: string) {
   return s.bag.reduce(
     (n, v) => n + (!v ? 9 : v.item === id ? 9 - v.qty : 0),
@@ -392,10 +396,16 @@ export function putItem(s: GameState, id: string, qty = 1): boolean {
     }
   return true;
 }
-function takeItem(s: GameState, id: string) {
-  const i = s.bag.findIndex((v) => v?.item === id);
-  if (i < 0) return false;
-  if (--s.bag[i]!.qty === 0) s.bag[i] = null;
+function takeItem(s: GameState, id: string, qty = 1) {
+  if (!Number.isInteger(qty) || qty < 1 || countItem(s, id) < qty) return false;
+  for (let i = 0; i < s.bag.length && qty > 0; i++) {
+    const slot = s.bag[i];
+    if (slot?.item !== id) continue;
+    const removed = Math.min(slot.qty, qty);
+    slot.qty -= removed;
+    qty -= removed;
+    if (!slot.qty) s.bag[i] = null;
+  }
   return true;
 }
 export function gatePoints(region: number) {
@@ -729,6 +739,7 @@ export type Action =
   | { type: 'interact'; id: string }
   | { type: AttackKind | 'flee' | 'expand' | 'pickup' }
   | { type: 'item' | 'buy'; id: string; target?: string }
+  | { type: 'sell'; id: string; qty: number }
   | { type: 'switch' | 'party' | 'actor' | 'quest'; id: string }
   | { type: 'rename'; name: string }
   | { type: 'dress'; appearance: Appearance }
@@ -769,6 +780,7 @@ export function act(source: GameState, a: Action): Result {
       'interact',
       'expand',
       'buy',
+      'sell',
       'travel',
       'pickup',
       'quest',
@@ -1018,6 +1030,42 @@ export function act(source: GameState, a: Action): Result {
     return fail(
       '편의점에서 원하는 크기의 가방을 구입하세요. 최대 1000칸까지 늘릴 수 있어요.',
     );
+  if (a.type === 'sell') {
+    const price = sellPrice(a.id);
+    if (!price)
+      return fail('판매할 수 없는 아이템이에요. 확장한 가방은 유지됩니다.');
+    if (
+      s.place !== 'shop' ||
+      !entities(s).some(
+        (e) => e.kind === 'merchant' && Math.hypot(e.x - s.x, e.y - s.y) <= 110,
+      )
+    )
+      return fail('상점 안의 상인에게 가까이 가세요.');
+    if (!Number.isInteger(a.qty) || a.qty < 1 || a.qty > countItem(s, a.id))
+      return fail('가지고 있는 수량 안에서 판매 수량을 골라 주세요.');
+    const earned = price * a.qty;
+    if (s.coins + earned > 99999999)
+      return fail('보유 코인 한도를 넘어요. 판매 수량을 줄여 주세요.');
+    takeItem(s, a.id, a.qty);
+    let unequipped = false;
+    if (!countItem(s, a.id)) {
+      if (s.weapon === a.id) {
+        s.weapon = null;
+        unequipped = true;
+      }
+      for (const slot of ['clothes', 'accessory'] as const)
+        if (s.equipment[slot] === a.id) {
+          s.equipment[slot] = null;
+          unequipped = true;
+        }
+      s.hero.hp = Math.min(s.hero.hp, heroStats(s).maxHp);
+    }
+    s.coins += earned;
+    return {
+      state: s,
+      message: `${ITEMS[a.id].name} ${a.qty}개 판매! +${earned.toLocaleString()} 코인${unequipped ? ' · 장착 해제' : ''}`,
+    };
+  }
   if (a.type === 'buy') {
     const item = ITEMS[a.id];
     if (!item) return fail('알 수 없는 아이템이에요.');
