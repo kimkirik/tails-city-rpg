@@ -1,7 +1,7 @@
+import { fieldGame as newGame } from './test-fixtures.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  newGame,
   makeDog,
   act,
   entities,

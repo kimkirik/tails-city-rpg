@@ -161,11 +161,13 @@ export default function BattleStage({
         ctx.filter = 'brightness(2)';
         enemyX += Math.sin(impactAge * 0.15) * 6;
       }
+      if (battle.enemy.dragon && s.region >= 8)
+        ctx.filter = `${ctx.filter === 'none' ? '' : ctx.filter} hue-rotate(${s.region === 8 ? 300 : 165}deg)`;
       if (battle.enemy.dragon)
         atlasSprite(
           ctx,
           dragons,
-          battle.enemy.region,
+          RAIDS[battle.enemy.region].sprite,
           3,
           2,
           enemyX,

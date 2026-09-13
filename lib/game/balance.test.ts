@@ -10,7 +10,7 @@ import {
   ITEMS,
   countItem,
 } from './model.ts';
-test('earned supplies and equipment can clear all six raids without excessive turn or healing loops', (t) => {
+test('earned supplies and equipment can clear all eight raids without excessive turn or healing loops', (t) => {
   let s = newGame();
   const results: {
     id: string;
@@ -31,6 +31,8 @@ test('earned supplies and equipment can clear all six raids without excessive tu
   function fight(id: string) {
     interact(id);
     if (!s.battle) throw Error('no battle ' + id);
+    if (heroStats(s).attack > s.dogs[0].atk && s.hero.hp > 0)
+      s = act(s, { type: 'actor', id: 'traveler' }).state;
     let n = 0,
       heals = 0,
       guards = 0,
@@ -41,12 +43,24 @@ test('earned supplies and equipment can clear all six raids without excessive tu
         actor = b.actor,
         d = actor === 'traveler' ? s.hero : s.dogs.find((d) => d.id === actor)!,
         max = actor === 'traveler' ? heroStats(s).maxHp : d.maxHp;
+      const healing = Object.entries(ITEMS)
+        .filter(
+          ([id, item]) =>
+            countItem(s, id) &&
+            item.heal &&
+            (item.target === 'any' ||
+              item.target === (actor === 'traveler' ? 'owner' : 'dog')),
+        )
+        .sort(
+          ([, a], [, b]) =>
+            Math.min(b.heal!, max - d.hp) - Math.min(a.heal!, max - d.hp),
+        )[0];
       if (
         d.hp < Math.max(30, b.enemy.atk * 2.3) &&
-        countItem(s, 'potion') &&
+        healing &&
         d.hp < max - 40
       ) {
-        a = { type: 'item', id: 'potion', target: actor };
+        a = { type: 'item', id: healing[0], target: actor };
         heals++;
       } else if (b.enemy.dragon && b.turn % 3 === 0) {
         a = { type: 'guard' };
@@ -77,31 +91,46 @@ test('earned supplies and equipment can clear all six raids without excessive tu
         s = act(s, { type: 'pickup' }).state;
       }
   }
-  interact('dog-0');
-  for (let region = 0; region < 6; region++) {
-    s.region = region;
+  interact('dog-1');
+  for (const region of [0, 6, 2, 3, 4, 5, 8, 10]) {
+    s.region = 1;
     s.place = 'field';
     s.x = 1024;
     s.y = 1190;
     if (!s.visited.includes(region)) s.visited.push(region);
-    interact(`armory-${region}`);
+    interact('armory-1');
     s.x = 1024;
     s.y = 820;
-    for (const id of [
-      'bat',
-      'hoodie',
-      'sword',
-      'ranger',
-      'stun',
-      'starlight',
-      'lunar',
-      'dragoncoat',
-      'dragonblade',
-    ])
-      if (s.coins >= ITEMS[id].price && !countItem(s, id))
-        s = act(s, { type: 'buy', id }).state;
-    interact(`exit-${region}`);
-    interact(`rest-${region}`);
+    for (const slot of ['weapon', 'clothes', 'accessory']) {
+      const gear = Object.entries(ITEMS)
+        .filter(
+          ([id, item]) =>
+            item.slot === slot &&
+            item.source === 'shop' &&
+            item.level <= s.hero.level &&
+            item.price <= s.coins &&
+            !countItem(s, id),
+        )
+        .sort(
+          ([, a], [, b]) =>
+            (b.attack ?? 0) +
+            (b.hp ?? 0) +
+            (b.charm ?? 0) -
+            ((a.attack ?? 0) + (a.hp ?? 0) + (a.charm ?? 0)),
+        )[0];
+      if (gear) s = act(s, { type: 'buy', id: gear[0] }).state;
+    }
+    s.shopType = 'convenience';
+    const bag = Object.entries(ITEMS)
+      .filter(
+        ([, item]) =>
+          item.capacity && item.capacity > s.capacity && item.price <= s.coins,
+      )
+      .sort(([, a], [, b]) => a.capacity! - b.capacity!)[0];
+    if (bag) s = act(s, { type: 'buy', id: bag[0] }).state;
+    interact('exit-1');
+    interact('rest-1');
+    s.region = region;
     interact(`raid-entry-${region}`);
     for (let i = 0; i < 3; i++) fight(`cave-${region}-${i}`);
     fight(`dragon-${region}`);
@@ -119,7 +148,7 @@ test('earned supplies and equipment can clear all six raids without excessive tu
         })),
     ),
   );
-  assert.equal(s.raids.length, 6);
+  assert.equal(s.raids.length, 8);
   for (const fight of results) {
     assert.ok(
       fight.actions <= (fight.id.startsWith('dragon') ? 18 : 6),

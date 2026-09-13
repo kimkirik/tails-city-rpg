@@ -1,6 +1,7 @@
 import { createCatalog } from './item-catalog.ts';
 export type EquipmentSlot = 'weapon' | 'clothes' | 'accessory';
 export type ItemDef = {
+  source: 'shop' | 'monster' | 'raid';
   level: number;
   rarity: number;
   name: string;
@@ -20,7 +21,10 @@ export type ItemDef = {
   charm?: number;
   defense?: number;
 };
-const BASE_ITEMS: Record<string, Omit<ItemDef, 'level' | 'rarity'>> = {
+const BASE_ITEMS: Record<
+  string,
+  Omit<ItemDef, 'level' | 'rarity' | 'source'>
+> = {
   treat: {
     name: '친구 간식',
     icon: '🦴',
@@ -289,7 +293,7 @@ export const WEAPONS: Record<string, { attack: number }> = Object.fromEntries(
     .filter(([, i]) => i.slot === 'weapon')
     .map(([id, i]) => [id, { attack: i.attack! }]),
 );
-export const RAIDS = [
+const RAID_DEFINITIONS = [
   {
     name: '이끼별 동굴',
     boss: '녹음룡 모스혼',
@@ -299,12 +303,12 @@ export const RAIDS = [
     hint: '3번째 턴마다 덩굴 폭풍. 방어로 피해를 줄여요.',
   },
   {
-    name: '마을 아래 꽃굴',
+    name: '들판의 햇살 동굴',
     boss: '햇살룡 플로라',
     element: '햇살',
     color: '#ffdc70',
     move: '태양 꽃가루',
-    hint: '마을은 안전하지만 동굴 안에는 몹이 있어요.',
+    hint: '꽃바람 들판에서 입장해요. 세 번째 턴의 꽃가루를 방어하세요.',
   },
   {
     name: '보랏빛 독굴',
@@ -339,6 +343,36 @@ export const RAIDS = [
     hint: '다섯 용의 봉인을 해방한 뒤 도전하세요.',
   },
 ];
+export const RAIDS = Object.fromEntries(
+  [
+    ...RAID_DEFINITIONS.map((raid, i) => ({
+      ...raid,
+      region: i === 1 ? 6 : i,
+      sprite: i,
+    })),
+    {
+      region: 8,
+      sprite: 2,
+      name: '수정 심장 동굴',
+      boss: '수정룡 프리즘',
+      element: '수정',
+      color: '#b6efff',
+      move: '수정 파열',
+      hint: '수정 파열을 방어하고 협공으로 균열을 노려요.',
+    },
+    {
+      region: 10,
+      sprite: 3,
+      name: '천둥 울림 동굴',
+      boss: '폭풍룡 템페스트',
+      element: '번개',
+      color: '#ffef8a',
+      move: '낙뢰 폭풍',
+      hint: '3번째 턴의 낙뢰에 대비해 회복 물품을 챙기세요.',
+    },
+  ].map((raid) => [raid.region, raid]),
+);
+export const RAID_LIST = Object.values(RAIDS);
 export const CAVE_MOBS = [
   { name: '동굴 왕쥐', sprite: 0 },
   { name: '물방울 슬라임', sprite: 1 },
@@ -350,15 +384,17 @@ export const CAVE_MOBS = [
 export const NPCS = [
   {
     id: 'elder',
+    region: 1,
     level: 18,
     name: '은별 할머니',
     sprite: 6,
     x: 1024,
-    y: 1180,
+    y: 1160,
     line: '검은 목줄단이 동굴 속 용에게 신호 목줄을 채웠단다. 마을 사람들의 이야기를 모아 주겠니?',
   },
   {
     id: 'detective',
+    region: 1,
     level: 12,
     name: '형사 준',
     sprite: 7,
@@ -368,6 +404,7 @@ export const NPCS = [
   },
   {
     id: 'vet',
+    region: 1,
     level: 10,
     name: '수의사 하나',
     sprite: 8,
@@ -377,12 +414,73 @@ export const NPCS = [
   },
   {
     id: 'worker',
+    region: 1,
     level: 15,
     name: '조사대 민',
     sprite: 9,
     x: 650,
     y: 970,
     line: '동굴의 세 수문장을 이기면 용의 봉인이 풀려. 각 지역의 용은 생김새와 숨결이 다르니 조심해!',
+  },
+  {
+    id: 'sailor',
+    region: 7,
+    level: 16,
+    name: '어부 해솔',
+    sprite: 7,
+    x: 1024,
+    y: 1160,
+    line: '여긴 안전한 바람포구 마을이야. 북쪽 항구에는 약탈자, 동쪽 협곡에는 수정 몬스터가 있어. 상점에서 준비하고 떠나!',
+  },
+  {
+    id: 'coast-guide',
+    region: 7,
+    level: 14,
+    name: '안내원 나루',
+    sprite: 8,
+    x: 1340,
+    y: 970,
+    line: '미니맵의 목적지를 누르면 길을 안내해 드려요. 마을에는 적도 동굴도 없으니 편히 쉬세요.',
+  },
+  {
+    id: 'gardener',
+    region: 9,
+    level: 24,
+    name: '정원사 소담',
+    sprite: 6,
+    x: 1024,
+    y: 1160,
+    line: '서쪽은 수정 협곡, 동쪽은 폭풍 고원이란다. 귀한 장비는 상점에 없어. 원정에서 만나는 몬스터를 찾아보렴.',
+  },
+  {
+    id: 'mountain-guide',
+    region: 9,
+    level: 25,
+    name: '등산가 다온',
+    sprite: 9,
+    x: 1340,
+    y: 970,
+    line: '레이드 수문장은 동굴에 다시 들어가면 돌아와. 용을 해방한 동굴은 네 레벨에 맞춰 더 어려워지고 전리품도 좋아져!',
+  },
+  {
+    id: 'astronomer',
+    region: 11,
+    level: 30,
+    name: '별지기 유라',
+    sprite: 8,
+    x: 1024,
+    y: 1160,
+    line: '서쪽은 블랙테일 본부, 남쪽은 폭풍 고원이에요. 이 별빛 마을에서는 누구도 싸우지 않아요.',
+  },
+  {
+    id: 'night-guide',
+    region: 11,
+    level: 28,
+    name: '순찰대 온',
+    sprite: 7,
+    x: 1340,
+    y: 970,
+    line: '강화 비타민은 몬스터 전리품, 최고의 장비는 레이드 전리품! 가방을 비우고 다시 원정을 떠나 봐.',
   },
 ];
 export type QuestDef = {
@@ -421,7 +519,7 @@ export const QUESTS: QuestDef[] = [
     metric: 'thieves',
     coins: 360,
     charm: 3,
-    items: [{ item: 'tonic', qty: 1 }],
+    items: [{ item: 'potion', qty: 5 }],
   },
   {
     id: 'rats',
@@ -433,7 +531,7 @@ export const QUESTS: QuestDef[] = [
     metric: 'rats',
     coins: 300,
     charm: 3,
-    items: [{ item: 'dogtonic', qty: 1 }],
+    items: [{ item: 'deluxe', qty: 3 }],
   },
   {
     id: 'cats',
@@ -448,18 +546,18 @@ export const QUESTS: QuestDef[] = [
     charm: 5,
     items: [{ item: 'revive', qty: 3 }],
   },
-  ...RAIDS.map((r, i) => ({
-    id: `raid-${i}`,
+  ...RAID_LIST.map((r) => ({
+    id: `raid-${r.region}`,
     title: `${r.boss}의 목줄을 풀어라`,
     npc: 'worker',
     description: `${r.name}에서 수문장 셋을 이긴 뒤 ${r.boss}를 진정시키세요.`,
     goal: 1,
-    metric: `raid-${i}`,
-    coins: 450 + i * 180,
+    metric: `raid-${r.region}`,
+    coins: 450 + r.region * 180,
     charm: 2,
     items: [
-      { item: 'dogtonic', qty: 1 },
-      { item: 'tonic', qty: 1 },
+      { item: 'revive', qty: 2 },
+      { item: 'treat', qty: 3 },
     ],
   })),
 ];

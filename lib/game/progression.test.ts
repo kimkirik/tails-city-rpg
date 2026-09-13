@@ -125,6 +125,8 @@ test('monster levels are visible and cleared cave challenges scale, while the or
   s.y = dog.y;
   const recruited = act(s, { type: 'interact', id: dog.id }).state;
   assert.equal(recruited.dogs[1].level, entityLevel(s, dog));
+  s.region = 0;
+  s.visited = [0];
   s.place = 'cave';
   const guard = entities(s).find((e) => e.creature !== undefined)!;
   const dragon = entities(s).find((e) => e.dragon)!;
@@ -151,6 +153,8 @@ test('loot varies by victory and level, never exceeds traveler or enemy level, a
     rarities = new Set<number>();
   for (const level of [1, 3, 8, 20, 60, 100]) {
     const s = newGame();
+    s.region = 0;
+    s.visited = [0];
     s.place = 'cave';
     s.raids = [0];
     s.hero.level = level;
@@ -175,6 +179,8 @@ test('loot varies by victory and level, never exceeds traveler or enemy level, a
   assert.ok(rarities.has(5));
   const s = newGame();
   s.hero.level = 100;
+  s.region = 0;
+  s.visited = [0];
   s.place = 'cave';
   const low = enemyStats(
     s,
@@ -221,6 +227,8 @@ test('old saves migrate hero progression and preserve equipment and 1,000-slot m
 
 test('long sessions keep all existing ground loot and convert only overflow to coins without breaking saves', () => {
   let s = newGame();
+  s.region = 0;
+  s.visited = [0];
   s.drops = Array.from({ length: 840 }, (_, i) => ({
     id: `drop-0-${i}`,
     region: 0,
@@ -264,7 +272,7 @@ test('level 20, 60 and 100 cave challenges are winnable with matching gear and m
       const id = GENERATED_BY_LEVEL[level].find(([, i]) => i.slot === slot)![0];
       s = act(s, { type: 'buy', id }).state;
     }
-    Object.assign(s, { place: 'cave', raids: [0] });
+    Object.assign(s, { region: 0, visited: [0, 1], place: 'cave', raids: [0] });
     const e = entities(s).find((e) => e.id === 'cave-0-0')!;
     s.x = e.x;
     s.y = e.y;

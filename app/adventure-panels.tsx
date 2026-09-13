@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { ITEM_ENTRIES } from '@/lib/game/content';
-import { RARITIES } from '@/lib/game/item-catalog';
+import { RARITIES, ITEM_SOURCES } from '@/lib/game/item-catalog';
 import {
   Backpack,
   Check,
@@ -24,6 +24,7 @@ import {
   NPCS,
   QUESTS,
   RAIDS,
+  RAID_LIST,
   REGIONS,
   heroStats,
   questProgress,
@@ -38,7 +39,7 @@ import {
 function ItemLevel({ item }: { item: (typeof ITEMS)[string] }) {
   return (
     <span className={`item-level rarity-${item.rarity}`}>
-      Lv.{item.level} · {RARITIES[item.rarity]}
+      Lv.{item.level} · {RARITIES[item.rarity]} · {ITEM_SOURCES[item.source]}
     </span>
   );
 }
@@ -246,6 +247,7 @@ export function Shop({ state: s, onAction }: Props) {
       ITEM_ENTRIES.filter(
         ([id, item]) =>
           item.shop === s.shopType &&
+          (mode === 'loot' ? item.source !== 'shop' : item.source === 'shop') &&
           (scope === 'all' || item.level <= s.hero.level) &&
           (!search.trim() ||
             `${item.name} ${item.desc} ${RARITIES[item.rarity]}`.includes(
@@ -263,19 +265,27 @@ export function Shop({ state: s, onAction }: Props) {
           bi.level - ai.level ||
           Number(b.startsWith('gear-')) - Number(a.startsWith('gear-')),
       ),
-    [s.shopType, s.hero.level, scope, search, armory, category],
+    [s.shopType, s.hero.level, scope, search, armory, category, mode],
   );
   const pages = Math.max(1, Math.ceil(items.length / 12)),
     safePage = Math.min(page, pages - 1);
   return (
     <>
-      <Tabs value={mode} onValueChange={(v) => setMode(String(v))}>
+      <Tabs
+        value={mode}
+        onValueChange={(v) => {
+          setMode(String(v));
+          setPage(0);
+          setCategory(armory ? 'weapon' : 'supplies');
+        }}
+      >
         <TabsList className="shop-mode-tabs" aria-label="상점 거래 선택">
           <TabsTrigger value="buy">사기</TabsTrigger>
           <TabsTrigger value="sell">팔기</TabsTrigger>
+          <TabsTrigger value="loot">전리품 도감</TabsTrigger>
         </TabsList>
       </Tabs>
-      {mode === 'buy' && (
+      {mode !== 'sell' && (
         <div className="shop-toolbar">
           <Tabs
             value={category}
@@ -285,16 +295,20 @@ export function Shop({ state: s, onAction }: Props) {
             }}
           >
             <TabsList>
-              {categories.map(([id, name]) => (
-                <TabsTrigger key={id} value={id}>
-                  {name}
-                </TabsTrigger>
-              ))}
+              {categories
+                .filter(([id]) =>
+                  mode === 'loot' ? id !== 'bags' : id !== 'boost',
+                )
+                .map(([id, name]) => (
+                  <TabsTrigger key={id} value={id}>
+                    {name}
+                  </TabsTrigger>
+                ))}
             </TabsList>
           </Tabs>
         </div>
       )}
-      {mode === 'buy' && (
+      {mode !== 'sell' && (
         <div className="catalog-search">
           <Input
             aria-label="상점 아이템 검색"
@@ -351,6 +365,15 @@ export function Shop({ state: s, onAction }: Props) {
                   <h3>{item.name}</h3>
                   <ItemLevel item={item} />
                   <p>{item.desc}</p>
+                  {mode === 'loot' && (
+                    <p className="loot-acquisition">
+                      {item.source === 'raid'
+                        ? '동굴 수문장·드래곤'
+                        : '전투 지역 몬스터'}
+                      <br />
+                      무작위 획득 · 상점 판매 안 함
+                    </p>
+                  )}
                   {item.slot ? (
                     <small>
                       {current ? `현재: ${before!.name}` : '현재: 미착용'}
@@ -366,32 +389,34 @@ export function Shop({ state: s, onAction }: Props) {
                     </small>
                   )}
                 </div>
-                <button
-                  className="primary-button"
-                  disabled={
-                    owned || s.coins < item.price || s.hero.level < item.level
-                  }
-                  onClick={() => onAction({ type: 'buy', id })}
-                >
-                  ◈ {item.price.toLocaleString()}
-                  <small>
-                    {s.hero.level < item.level
-                      ? `Lv.${item.level} 필요`
-                      : owned
-                        ? '보유 중'
-                        : item.capacity
-                          ? '구입 · 확장'
-                          : item.slot
-                            ? '구입 · 장착'
-                            : '1개 구입'}
-                  </small>
-                </button>
+                {mode !== 'loot' && (
+                  <button
+                    className="primary-button"
+                    disabled={
+                      owned || s.coins < item.price || s.hero.level < item.level
+                    }
+                    onClick={() => onAction({ type: 'buy', id })}
+                  >
+                    ◈ {item.price.toLocaleString()}
+                    <small>
+                      {s.hero.level < item.level
+                        ? `Lv.${item.level} 필요`
+                        : owned
+                          ? '보유 중'
+                          : item.capacity
+                            ? '구입 · 확장'
+                            : item.slot
+                              ? '구입 · 장착'
+                              : '1개 구입'}
+                    </small>
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
       )}
-      {mode === 'buy' && (
+      {mode !== 'sell' && (
         <div className="bag-pagination catalog-pagination">
           <button
             aria-label="이전 상품 페이지"
@@ -424,7 +449,7 @@ export function Shop({ state: s, onAction }: Props) {
           </button>
         </div>
       )}
-      {mode === 'buy' && !items.length && (
+      {mode !== 'sell' && !items.length && (
         <p className="shop-empty">
           조건에 맞는 상품이 없어요. 검색어나 레벨 범위를 바꿔 보세요.
         </p>
@@ -432,9 +457,9 @@ export function Shop({ state: s, onAction }: Props) {
       <p className="shop-note">
         {mode === 'sell'
           ? '두 상점 모두 아이템을 구매가의 50%에 매입합니다(소수점 버림). 확장한 가방은 판매되지 않아요.'
-          : armory
-            ? '총 10,000종 아이템 · 여행자 레벨이 오르면 새 상품이 열립니다. 보유 장비는 가방에서 장착하세요.'
-            : '총 10,000종 아이템 · 레벨에 맞는 회복 물품을 찾아보세요. 큰 가방은 구입 즉시 확장됩니다.'}
+          : mode === 'loot'
+            ? '추가 전리품 확률: 일반 몬스터 18% · 대장 45%. 레이드 전용: 수문장 10% · 드래곤 80%. 내 레벨과 적 레벨 이하 아이템 중 무작위 1종. 회복 물품은 별도 지급.'
+            : '상점은 기본 보급품과 일반 장비를 판매해요. 희귀 장비·강화제는 전리품 도감에서 획득처를 확인하세요.'}
       </p>
     </>
   );
@@ -682,10 +707,16 @@ export function QuestJournal({
           완료한 의뢰
         </span>
         <span>
-          <b>{s.rescued.length} / 6</b>구조한 고양이
+          <b>
+            {s.rescued.length} / {RAID_LIST.length}
+          </b>
+          구조한 고양이
         </span>
         <span>
-          <b>{s.raids.length} / 6</b>해방한 드래곤
+          <b>
+            {s.raids.length} / {RAID_LIST.length}
+          </b>
+          해방한 드래곤
         </span>
       </div>
       <h3>마을의 부탁</h3>
@@ -693,23 +724,23 @@ export function QuestJournal({
       {QUESTS.filter((q) => !q.id.startsWith('raid-')).map((q) => (
         <QuestCard key={q.id} id={q.id} state={s} onAction={onAction} />
       ))}
-      <h3>여섯 용의 신호</h3>
-      {RAIDS.map((raid, i) => (
+      <h3>여덟 용의 신호</h3>
+      {RAID_LIST.map((raid) => (
         <div className="raid-journal" key={raid.name}>
           <div
             className="dragon-portrait"
             style={{
               backgroundImage: 'url(/art/raids/dragons.png)',
               backgroundSize: '300% 200%',
-              backgroundPosition: `${((i % 3) / 2) * 100}% ${Math.floor(i / 3) * 100}%`,
+              backgroundPosition: `${((raid.sprite % 3) / 2) * 100}% ${Math.floor(raid.sprite / 3) * 100}%`,
             }}
           />
           <div>
             <strong>
-              {raid.boss} {s.raids.includes(i) && <Check size={15} />}
+              {raid.boss} {s.raids.includes(raid.region) && <Check size={15} />}
             </strong>
             <p>
-              {REGIONS[i].name} · {raid.name}
+              {REGIONS[raid.region].name} · {raid.name}
             </p>
             <small>{raid.hint}</small>
           </div>
@@ -718,9 +749,9 @@ export function QuestJournal({
       {QUESTS.filter((q) => q.id.startsWith('raid-')).map((q) => (
         <QuestCard key={q.id} id={q.id} state={s} onAction={onAction} />
       ))}
-      {s.raids.length === 6 && (
+      {s.raids.length === RAID_LIST.length && (
         <div className="ending">
-          <h3>여섯 용이 자유를 되찾았어요.</h3>
+          <h3>여덟 용이 자유를 되찾았어요.</h3>
           <p>친구들과의 산책은 계속됩니다!</p>
         </div>
       )}

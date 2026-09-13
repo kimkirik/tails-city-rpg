@@ -6,6 +6,7 @@ import {
   entities,
   walkable,
   REGIONS,
+  RAID_LIST,
   RAIDS,
   QUESTS,
   NPCS,
@@ -81,8 +82,9 @@ test('visible gate topology and collision agree at every boundary and all links 
   }
 });
 test('all field and cave interactions can be reached using the actual touch pathfinder', () => {
-  for (let region = 0; region < 6; region++)
+  for (const { id: region } of REGIONS)
     for (const place of ['field', 'cave'] as const) {
+      if (place === 'cave' && !RAIDS[region]) continue;
       const s = place === 'cave' ? cave(region) : newGame();
       s.region = region;
       s.x = 1024;
@@ -90,9 +92,9 @@ test('all field and cave interactions can be reached using the actual touch path
       for (const e of entities(s)) approach(s, e.id);
     }
 });
-test('six raids have distinct bosses, safe village has combat only underground and guards gate bosses', () => {
+test('eight raids have distinct bosses outside towns and guards gate bosses', () => {
   const names = new Set<string>();
-  for (let region = 0; region < 6; region++) {
+  for (const { region } of RAID_LIST) {
     let s = cave(region);
     const boss = entities(s).find((e) => e.dragon)!;
     names.add(boss.name);
@@ -103,7 +105,7 @@ test('six raids have distinct bosses, safe village has combat only underground a
     approach(s, boss.id);
     if (region === 5) {
       assert.equal(act(s, { type: 'interact', id: boss.id }).state, s);
-      s.raids = [0, 1, 2, 3, 4];
+      s.raids = [0, 6, 2, 3, 4];
     }
     s = win(s, boss.id);
     assert.ok(s.raids.includes(region));
@@ -111,11 +113,11 @@ test('six raids have distinct bosses, safe village has combat only underground a
     assert.ok(s.drops.every((d) => walkable(d.x, d.y, region, d.place)));
     assert.deepEqual(unpackSave(packSave(s)), s);
   }
-  assert.equal(names.size, 6);
+  assert.equal(names.size, 8);
   const village = newGame();
   village.region = 1;
   assert.equal(entities(village).filter((e) => e.kind === 'enemy').length, 0);
-  assert.equal(entities(cave(1)).filter((e) => e.kind === 'enemy').length, 4);
+  assert.equal(entities(village).filter((e) => e.kind === 'cave').length, 0);
 });
 test('cave cats require guards; rescue and boss rewards persist and cannot repeat', () => {
   let s = cave();
@@ -164,14 +166,14 @@ test('NPC information, prerequisites, claim proximity and rewards are consistent
 });
 test('charm gates recruitment without wasting treats; equipment raises real stats and strengthens recruitment', () => {
   let s = newGame();
-  approach(s, 'dog-0-b');
+  approach(s, 'dog-1-b');
   const treats = countItem(s, 'treat');
-  assert.equal(act(s, { type: 'interact', id: 'dog-0-b' }).state, s);
+  assert.equal(act(s, { type: 'interact', id: 'dog-1-b' }).state, s);
   assert.equal(countItem(s, 'treat'), treats);
   putItem(s, 'ribbon');
   s = act(s, { type: 'item', id: 'ribbon' }).state;
   assert.equal(heroStats(s).charm, 10);
-  s = act(s, { type: 'interact', id: 'dog-0-b' }).state;
+  s = act(s, { type: 'interact', id: 'dog-1-b' }).state;
   assert.equal(s.dogs.length, 2);
   assert.equal(countItem(s, 'treat'), treats - 1);
   putItem(s, 'ranger');

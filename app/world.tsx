@@ -3,6 +3,8 @@ import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 import {
   SIZE,
   REGIONS,
+  isTown,
+  gatePoints,
   walkable,
   entities,
   bagRoom,
@@ -14,8 +16,15 @@ import { KeyboardMovement } from '@/lib/game/keyboard';
 import { DOG_WALK_SHEETS } from '@/lib/game/dog-art';
 import { advanceMotion, idleMotion } from '@/lib/game/motion';
 import { render, type View } from '@/lib/game/render';
+export type NavigationRequest = {
+  region: number;
+  place: GameState['place'];
+  id?: string;
+  edge?: number;
+};
 export default function World({
   game,
+  navigation,
   paused,
   onAction,
   onTick,
@@ -23,6 +32,7 @@ export default function World({
   running,
 }: {
   game: RefObject<GameState>;
+  navigation: RefObject<NavigationRequest | null>;
   paused: RefObject<boolean>;
   onAction: (a: Action) => void;
   onTick: () => void;
@@ -209,6 +219,26 @@ export default function World({
         v.secondMotion = idleMotion();
       }
       if (!paused.current && !s.battle) {
+        const request = navigation.current;
+        if (request) {
+          navigation.current = null;
+          if (request.region === s.region && request.place === s.place) {
+            const ent = request.id
+              ? entities(s).find((e) => e.id === request.id)
+              : null;
+            const gate =
+              request.edge !== undefined &&
+              s.place === 'field' &&
+              REGIONS[s.region].neighbors[request.edge] >= 0
+                ? gatePoints(s.region)[request.edge]
+                : null;
+            const goal = ent ? { x: ent.x, y: ent.y + 38 } : gate;
+            keyboard.clear();
+            path = goal ? findPath(s, goal) : [];
+            interactId = ent?.id ?? null;
+            v.target = path.at(-1) ?? null;
+          }
+        }
         const input = keyboard.vector();
         let dx = input.x,
           dy = input.y,
@@ -295,7 +325,7 @@ export default function World({
           lastSecond = time;
         }
         if (
-          (s.place === 'cave' || (s.place === 'field' && s.region !== 1)) &&
+          (s.place === 'cave' || (s.place === 'field' && !isTown(s.region))) &&
           s.seconds >= s.encounterGraceUntil &&
           game.current === s
         ) {
@@ -382,7 +412,7 @@ export default function World({
       document.removeEventListener('visibilitychange', visibility);
       el.removeEventListener('pointerdown', click);
     };
-  }, [game, paused, onAction, onTick]);
+  }, [game, navigation, paused, onAction, onTick]);
   return (
     <canvas
       ref={canvas}

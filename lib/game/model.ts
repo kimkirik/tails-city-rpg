@@ -5,68 +5,8 @@ import {
 } from './appearance.ts';
 import { enemyLook, ENEMY_LOOKS } from './enemies.ts';
 export const SIZE = 2048;
-export const REGIONS = [
-  {
-    id: 0,
-    name: '솔빛 강변공원',
-    en: 'SOLBIT RIVERSIDE',
-    tag: '여정의 시작',
-    level: 1,
-    color: '#7ca965',
-    desc: '강가의 작은 공원. 잃어버린 강아지들의 첫 단서가 남아 있다.',
-    neighbors: [-1, 1, 3, -1],
-  },
-  {
-    id: 1,
-    name: '연두 마을',
-    en: 'YEONDU NEIGHBORHOOD',
-    tag: '골목의 소문',
-    level: 2,
-    color: '#cfa36f',
-    desc: '상점과 주민들이 모인 안전한 마을. 마을 외곽의 대장을 쓰러뜨려 골목을 지켜라.',
-    neighbors: [-1, 2, 4, 0],
-  },
-  {
-    id: 2,
-    name: '안개솔 숲',
-    en: 'MISTPINE FOREST',
-    tag: '숲의 수호자',
-    level: 3,
-    color: '#547e64',
-    desc: '도시 외곽의 깊은 숲. 검은 목줄단이 비밀 신호기를 숨겨 놓았다.',
-    neighbors: [-1, -1, 5, 1],
-  },
-  {
-    id: 3,
-    name: '파도빛 항구',
-    en: 'TIDELIGHT HARBOR',
-    tag: '수상한 화물',
-    level: 4,
-    color: '#649ca9',
-    desc: '푸른 바다 너머로 사라지는 수상한 배. 컨테이너 속 단서를 찾아라.',
-    neighbors: [0, 4, -1, -1],
-  },
-  {
-    id: 4,
-    name: '철길 공업지대',
-    en: 'IRON RAIL DISTRICT',
-    tag: '멈춰 버린 공장',
-    level: 5,
-    color: '#a27f68',
-    desc: '기계 소리에 가려진 작은 울음. 목줄단의 공급망이 이곳을 지난다.',
-    neighbors: [1, 5, -1, 3],
-  },
-  {
-    id: 5,
-    name: '블랙테일 본부',
-    en: 'BLACKTAIL HEADQUARTERS',
-    tag: '마지막 신호',
-    level: 7,
-    color: '#536780',
-    desc: '다섯 신호기를 끄고 도시를 되찾자. 블랙테일의 대장이 기다린다.',
-    neighbors: [2, -1, -1, 4],
-  },
-];
+import { REGIONS, isTown, roadY, CAMPAIGN_REGIONS } from './regions.ts';
+export { REGIONS, isTown, roadY, CAMPAIGN_REGIONS };
 export const BREEDS = [
   {
     name: '시바',
@@ -136,13 +76,15 @@ import {
   ITEMS,
   WEAPONS,
   RAIDS,
+  RAID_LIST,
   CAVE_MOBS,
   NPCS,
   QUESTS,
   GENERATED_BY_LEVEL,
+  ITEM_ENTRIES,
   type EquipmentSlot,
 } from './content.ts';
-export { ITEMS, WEAPONS, RAIDS, CAVE_MOBS, NPCS, QUESTS };
+export { ITEMS, WEAPONS, RAIDS, RAID_LIST, CAVE_MOBS, NPCS, QUESTS };
 export type Place = 'field' | 'shop' | 'cave';
 export type Dog = {
   id: string;
@@ -203,6 +145,7 @@ export type Hero = {
   poison: boolean;
 };
 export type GameState = {
+  worldRevision?: 2;
   version: 1;
   region: number;
   x: number;
@@ -290,9 +233,10 @@ export function makeDog(
 export function newGame(): GameState {
   return {
     version: 1,
-    region: 0,
+    worldRevision: 2,
+    region: 1,
     x: 1024,
-    y: 1190,
+    y: 1280,
     coins: 320,
     capacity: 25,
     bag: [
@@ -307,7 +251,7 @@ export function newGame(): GameState {
     defeated: [],
     recruited: [],
     looted: [],
-    visited: [0],
+    visited: [1],
     battle: null,
     steps: 0,
     won: false,
@@ -408,7 +352,7 @@ export function gainExperience(s: GameState, amount: number) {
   return raised;
 }
 export function baseEnemyLevel(s: GameState, e: Entity) {
-  const region = e.id === 'captain-1' ? 1 : s.region;
+  const region = s.region;
   return (
     REGIONS[region].level +
     (e.dragon
@@ -428,14 +372,14 @@ export function entityLevel(s: GameState, e: Entity) {
     return Math.min(MAX_LEVEL, Math.max(base, challenge ? s.hero.level : base));
   }
   if (e.kind === 'dog')
-    return Math.max(1, s.region + 1) + Number(e.id.endsWith('-b'));
+    return REGIONS[s.region].level + Number(e.id.endsWith('-b'));
   if (e.kind === 'npc') return NPCS.find((n) => n.id === e.npc)?.level ?? 1;
   if (e.kind === 'merchant') return e.name.includes('태오') ? 20 : 12;
   if (e.kind === 'cat') return REGIONS[s.region].level;
   return 0;
 }
 export function charmNeeded(id: string, region: number) {
-  return 5 + region * 5 + (id.endsWith('-b') ? 4 : 0);
+  return 5 + (REGIONS[region].level - 1) * 5 + (id.endsWith('-b') ? 4 : 0);
 }
 export function countItem(s: GameState, id: string) {
   return s.bag.reduce((n, v) => n + (v?.item === id ? v.qty : 0), 0);
@@ -482,9 +426,9 @@ function takeItem(s: GameState, id: string, qty = 1) {
 export function gatePoints(region: number) {
   return [
     { x: 1024, y: region === 5 ? 850 : 60 },
-    { x: 1988, y: 970 },
+    { x: 1988, y: roadY(region) },
     { x: 1024, y: 1988 },
-    { x: 60, y: 970 },
+    { x: 60, y: roadY(region) },
   ];
 }
 export function closedGates(region: number) {
@@ -526,7 +470,9 @@ export function walkable(
     x <= SIZE - 24 &&
     y >= 24 &&
     y <= SIZE - 24;
-  const road = Math.abs(x - 1024) < 87 || Math.abs(y - 970) < 73;
+  const road =
+    Math.abs(x - 1024) < 87 ||
+    Math.abs(y - roadY(region)) < (region >= 6 ? 65 : 73);
   const plaza = region === 0 && x > 860 && x < 1190 && y > 785 && y < 1125;
   const fountain = region === 0 && Math.hypot(x - 1024, y - 935) < 115;
   const connected =
@@ -545,16 +491,24 @@ export function walkable(
 export function entities(s: GameState): Entity[] {
   const r = s.region;
   if (s.place === 'shop')
-    return [
-      {
-        id: `counter-${r}`,
-        kind: 'merchant',
-        name: s.shopType === 'armory' ? '무기상 태오' : '편의점 미로',
-        x: 1024,
-        y: 820,
-      },
-      { id: `exit-${r}`, kind: 'exit', name: '상점 출구', x: 1024, y: 1840 },
-    ];
+    return !isTown(r)
+      ? []
+      : [
+          {
+            id: `counter-${r}`,
+            kind: 'merchant',
+            name: s.shopType === 'armory' ? '무기상 태오' : '편의점 미로',
+            x: 1024,
+            y: 820,
+          },
+          {
+            id: `exit-${r}`,
+            kind: 'exit',
+            name: '상점 출구',
+            x: 1024,
+            y: 1840,
+          },
+        ];
   const drops: Entity[] = s.drops
     .filter((d) => d.region === r && (d.place ?? 'field') === s.place)
     .map((d) => ({
@@ -567,68 +521,96 @@ export function entities(s: GameState): Entity[] {
       qty: d.qty,
     }));
   if (s.place === 'cave')
-    return [
-      ...[0, 1, 2]
-        .filter((i) => !s.caveCleared.includes(`cave-${r}-${i}`))
-        .map((i) => {
-          const creature = i === 0 ? 0 : (r + i) % CAVE_MOBS.length;
-          return {
-            id: `cave-${r}-${i}`,
-            kind: 'enemy' as const,
-            name: CAVE_MOBS[creature].name,
-            creature,
-            x: [530, 1510, 1024][i],
-            y: [1100, 1100, 780][i],
-          };
-        }),
-      ...(!s.raids.includes(r)
-        ? [
-            {
-              id: `dragon-${r}`,
-              kind: 'enemy' as const,
-              name: RAIDS[r].boss,
-              dragon: true,
-              captain: true,
-              x: 1024,
-              y: 440,
-            },
-          ]
-        : []),
-      ...(!s.rescued.includes(r)
-        ? [
-            {
-              id: `cat-${r}`,
-              kind: 'cat' as const,
-              name: '갇힌 고양이',
-              x: 1210,
-              y: 1160,
-            },
-          ]
-        : []),
-      {
-        id: `cave-exit-${r}`,
-        kind: 'exit',
-        name: '동굴 밖으로',
-        x: 1024,
-        y: 1830,
-      },
-      ...drops,
-    ];
-  const names = ['구름', '보리', '번개', '초코', '두부', '루나'];
+    return !RAIDS[r]
+      ? []
+      : [
+          ...[0, 1, 2]
+            .filter((i) => !s.caveCleared.includes(`cave-${r}-${i}`))
+            .map((i) => {
+              const creature = i === 0 ? 0 : (r + i) % CAVE_MOBS.length;
+              return {
+                id: `cave-${r}-${i}`,
+                kind: 'enemy' as const,
+                name: CAVE_MOBS[creature].name,
+                creature,
+                x: [530, 1510, 1024][i],
+                y: [1100, 1100, 780][i],
+              };
+            }),
+          ...(!s.raids.includes(r)
+            ? [
+                {
+                  id: `dragon-${r}`,
+                  kind: 'enemy' as const,
+                  name: RAIDS[r].boss,
+                  dragon: true,
+                  captain: true,
+                  x: 1024,
+                  y: 440,
+                },
+              ]
+            : []),
+          ...(!s.rescued.includes(r)
+            ? [
+                {
+                  id: `cat-${r}`,
+                  kind: 'cat' as const,
+                  name: '갇힌 고양이',
+                  x: 1210,
+                  y: 1160,
+                },
+              ]
+            : []),
+          {
+            id: `cave-exit-${r}`,
+            kind: 'exit',
+            name: '동굴 밖으로',
+            x: 1024,
+            y: 1830,
+          },
+          ...drops,
+        ];
+  const names = [
+    '구름',
+    '보리',
+    '번개',
+    '초코',
+    '두부',
+    '루나',
+    '봄이',
+    '파도',
+    '수정',
+    '소나',
+    '천둥',
+    '은하',
+  ];
   const list: Entity[] = [
     {
       id: `dog-${r}`,
       kind: 'dog',
       name: names[r],
-      breed: [1, 4, 2, 3, 0, 5][r],
+      breed: [1, 4, 2, 3, 0, 5][r % 6],
       x: 1120,
       y: 1110,
     },
     {
       id: `dog-${r}-b`,
       kind: 'dog',
-      name: ['쿠키', '밤이', '솔이', '바다', '철이', '별이'][r],
-      breed: [4, 0, 5, 2, 1, 3][r],
+      name: [
+        '쿠키',
+        '밤이',
+        '솔이',
+        '바다',
+        '철이',
+        '별이',
+        '꽃이',
+        '나미',
+        '보석',
+        '산이',
+        '번쩍',
+        '달이',
+      ][r],
+      breed: [4, 0, 5, 2, 1, 3][r % 6],
       x: 1024,
       y: r === 5 ? 1700 : 360,
     },
@@ -675,12 +657,12 @@ export function entities(s: GameState): Entity[] {
       kind: 'rest',
       name: '쉼터 · 무료 회복',
       x: 1024,
-      y: 1350,
+      y: 1730,
     },
     {
       id: `raid-entry-${r}`,
       kind: 'cave',
-      name: RAIDS[r].name,
+      name: RAIDS[r]?.name ?? '',
       x: 1024,
       y: 1620,
     },
@@ -695,20 +677,8 @@ export function entities(s: GameState): Entity[] {
     },
     { id: `mob-${r}-1`, kind: 'enemy', name: '목줄단 경비병', x: 1630, y: 970 },
     ...drops,
-    ...(r === 0
-      ? [
-          {
-            id: 'captain-1',
-            kind: 'enemy' as const,
-            name: '마을 외곽 대장',
-            captain: true,
-            x: 1024,
-            y: 450,
-          },
-        ]
-      : []),
-    ...(r === 1
-      ? NPCS.map((n) => ({
+    ...(isTown(r)
+      ? NPCS.filter((n) => n.region === r).map((n) => ({
           id: `npc-${n.id}`,
           kind: 'npc' as const,
           name: n.name,
@@ -719,6 +689,9 @@ export function entities(s: GameState): Entity[] {
       : []),
   ];
   return list
+    .map((e) =>
+      e.y === 970 || e.y === 1000 ? { ...e, y: e.y + roadY(r) - 970 } : e,
+    )
     .map((e) =>
       e.kind === 'enemy'
         ? {
@@ -732,7 +705,9 @@ export function entities(s: GameState): Entity[] {
     )
     .filter(
       (e) =>
-        (r !== 1 || e.kind !== 'enemy') &&
+        (isTown(r)
+          ? !['enemy', 'cave', 'loot'].includes(e.kind)
+          : !['shop', 'rest', 'npc'].includes(e.kind)) &&
         !s.defeated.includes(e.id) &&
         !s.recruited.includes(e.id) &&
         !s.looted.includes(e.id) &&
@@ -1013,7 +988,9 @@ export function act(source: GameState, a: Action): Result {
       const npc = NPCS.find((n) => n.id === e.npc)!;
       s.npc = npc.id;
       if (!s.talked.includes(npc.id)) s.talked.push(npc.id);
-      s.progress.rumors = s.talked.filter((id) => id !== 'elder').length;
+      s.progress.rumors = s.talked.filter((id) =>
+        ['detective', 'vet', 'worker'].includes(id),
+      ).length;
       return { state: s, message: `${npc.name}: ${npc.line}`, event: 'npc' };
     }
     if (e.kind === 'cat') {
@@ -1068,12 +1045,16 @@ export function act(source: GameState, a: Action): Result {
       };
     }
     if (e.kind === 'enemy') {
+      if (isTown(s.region))
+        return fail('마을은 안전 지역이에요. 전투 지역으로 이동하세요.');
       const living = partyDogs(s).find((d) => d.hp > 0);
       if (!living && s.hero.hp <= 0)
         return fail('쉼터에서 먼저 회복해 주세요.');
       if (
         e.id === 'captain-5' &&
-        s.defeated.filter((id) => id.startsWith('captain-')).length < 5
+        !CAMPAIGN_REGIONS.every((region) =>
+          s.defeated.includes(`captain-${region}`),
+        )
       )
         return fail('마을 밖의 다섯 대장을 먼저 쓰러뜨리세요.');
       if (
@@ -1081,7 +1062,10 @@ export function act(source: GameState, a: Action): Result {
         [0, 1, 2].some((i) => !s.caveCleared.includes(`cave-${s.region}-${i}`))
       )
         return fail('수문장 세 명을 먼저 이겨 용의 봉인을 풀어 주세요.');
-      if (e.id === 'dragon-5' && s.raids.length < 5)
+      if (
+        e.id === 'dragon-5' &&
+        !CAMPAIGN_REGIONS.every((region) => s.raids.includes(region))
+      )
         return fail('다른 다섯 지역의 용을 먼저 해방해 주세요.');
       s.battle = {
         enemy: enemyStats(s, e),
@@ -1149,6 +1133,12 @@ export function act(source: GameState, a: Action): Result {
       )
     )
       return fail('상점 안의 상인에게 가까이 가세요.');
+    if (item.source !== 'shop')
+      return fail(
+        item.source === 'raid'
+          ? '레이드에서 확률적으로 얻는 전용 전리품이에요.'
+          : '몬스터를 처치하면 확률적으로 얻을 수 있어요.',
+      );
     if (item.shop !== s.shopType)
       return fail(
         item.shop === 'armory'
@@ -1288,7 +1278,7 @@ export function act(source: GameState, a: Action): Result {
       const en = b.enemy;
       const reward =
         (en.dragon ? 380 : en.captain ? 155 : 65) +
-        en.region * (en.dragon ? 110 : 30);
+        (REGIONS[en.region].level - 1) * (en.dragon ? 110 : 30);
       s.coins += reward;
       s.kills++;
       loot = dropRewards(s, en);
@@ -1308,7 +1298,7 @@ export function act(source: GameState, a: Action): Result {
       }
       const xp =
         35 +
-        en.region * 15 +
+        (REGIONS[en.region].level - 1) * 15 +
         (en.captain ? 45 : 0) +
         Math.max(0, en.level - REGIONS[en.region].level - 3) * 12;
       const leveled = gainExperience(s, xp);
@@ -1360,7 +1350,7 @@ export function act(source: GameState, a: Action): Result {
       if (edge < 0 || REGIONS[s.region].neighbors[edge] !== a.region)
         return fail('연결된 출구 가까이로 이동하세요.');
       s.x = edge === 1 ? 90 : edge === 3 ? SIZE - 90 : 1024;
-      s.y = edge === 2 ? 90 : edge === 0 ? SIZE - 90 : 970;
+      s.y = edge === 2 ? 90 : edge === 0 ? SIZE - 90 : roadY(a.region);
     } else {
       if (!s.visited.includes(a.region))
         return fail('먼저 연결된 길로 이 지역을 발견하세요.');
@@ -1371,7 +1361,7 @@ export function act(source: GameState, a: Action): Result {
     if (s.region === 5 && s.y < 860) s.y = 900;
     if (!s.visited.includes(a.region)) s.visited.push(a.region);
     s.encounterGraceUntil = s.seconds + 4;
-    message = `${REGIONS[a.region].name}에 도착했어요.`;
+    message = `${REGIONS[a.region].name} · ${isTown(a.region) ? '안전한 마을 — 상점과 주민은 미니맵에서 찾아요.' : '전투 지역 — 몬스터와 레이드 동굴이 있어요.'}`;
   }
   if (s.battle) {
     s.battle.log = s.battle.log.slice(-6);
@@ -1420,11 +1410,12 @@ function equip(s: GameState, id: string, slot: EquipmentSlot) {
 export function enemyStats(s: GameState, e: Entity): Enemy {
   const level = entityLevel(s, e),
     bonus = Math.max(0, level - baseEnemyLevel(s, e));
+  const difficulty = REGIONS[s.region].level - 1;
   const maxHp = e.dragon
-    ? 210 + s.region * 55
+    ? 210 + difficulty * 55
     : e.creature !== undefined
-      ? 60 + s.region * 20
-      : (e.captain ? 125 : 45) + s.region * (e.captain ? 30 : 18);
+      ? 60 + difficulty * 20
+      : (e.captain ? 125 : 45) + difficulty * (e.captain ? 30 : 18);
   const variant = Number(
     !e.captain && e.creature === undefined && e.id.endsWith('-1'),
   );
@@ -1437,7 +1428,10 @@ export function enemyStats(s: GameState, e: Entity): Enemy {
     hp: damaged > 0 ? Math.min(damaged, scaledHp) : scaledHp,
     maxHp: scaledHp,
     atk:
-      (e.dragon ? 14 : e.captain ? 12 : 8) + s.region * 3 + bonus * 2 + variant,
+      (e.dragon ? 14 : e.captain ? 12 : 8) +
+      difficulty * 3 +
+      bonus * 2 +
+      variant,
     captain: !!e.captain,
     region: s.region,
     dragon: e.dragon,
@@ -1482,6 +1476,13 @@ function enemyTurn(s: GameState, id: string, multiplier: number): CounterHit {
   b.cooldown = Math.max(0, b.cooldown - 1);
   return { actorId: id, damage, poisonDamage, breath };
 }
+// Chance of one bonus item from each exclusive pool, independent of staples.
+export const DROP_CHANCES = {
+  monster: { monster: 0.18, raid: 0 },
+  captain: { monster: 0.45, raid: 0 },
+  guardian: { monster: 0.3, raid: 0.1 },
+  dragon: { monster: 0.45, raid: 0.8 },
+} as const;
 export function lootForEnemy(s: GameState, en: Enemy) {
   const ceiling = Math.max(1, Math.min(100, s.hero.level, en.level));
   // Seed by encounter and kill count: saves are stable, repeat victories vary.
@@ -1502,12 +1503,7 @@ export function lootForEnemy(s: GameState, en: Enemy) {
   ];
   if (en.captain) {
     rewards.forEach((r) => (r.qty *= 2));
-    for (const item of ['revive', 'dogtonic', 'tonic'])
-      if (ITEMS[item].level <= ceiling) rewards.push({ item, qty: 1 });
-    const weapons = ['bat', 'sword', 'stun', 'lunar', 'dragonblade'].filter(
-      (id) => ITEMS[id].level <= ceiling,
-    );
-    rewards.push({ item: weapons.at(-1)!, qty: 1 });
+    if (ceiling >= ITEMS.revive.level) rewards.push({ item: 'revive', qty: 1 });
   }
   const picks = en.dragon ? 5 : en.captain ? 4 : 3;
   for (let i = 0; i < picks; i++) {
@@ -1515,22 +1511,9 @@ export function lootForEnemy(s: GameState, en: Enemy) {
       1,
       ceiling - Math.floor(random() * Math.min(3, ceiling)),
     );
-    const roll = random();
-    const rarity =
-      level >= 60 && roll > 0.97
-        ? 5
-        : level >= 20 && roll > 0.92
-          ? 4
-          : level >= 8 && roll > 0.82
-            ? 3
-            : level >= 3 && roll > 0.6
-              ? 2
-              : roll > 0.3
-                ? 1
-                : 0;
     const pool = GENERATED_BY_LEVEL[level].filter(
       ([, item]) =>
-        item.rarity <= rarity &&
+        item.source === 'shop' &&
         (i === 0 ? !!item.heal : i === 1 && en.captain ? !!item.slot : true),
     );
     const chosen = pool[Math.floor(random() * pool.length)];
@@ -1539,6 +1522,27 @@ export function lootForEnemy(s: GameState, en: Enemy) {
         item: chosen[0],
         qty: chosen[1].slot ? 1 : 2 + Math.floor(random() * 3),
       });
+  }
+  const chances =
+    DROP_CHANCES[
+      en.dragon
+        ? 'dragon'
+        : en.creature !== undefined
+          ? 'guardian'
+          : en.captain
+            ? 'captain'
+            : 'monster'
+    ];
+  for (const source of ['monster', 'raid'] as const) {
+    if (random() >= chances[source]) continue;
+    const pool = ITEM_ENTRIES.filter(
+      ([id, item]) =>
+        item.source === source &&
+        item.level <= ceiling &&
+        (!id.startsWith('gear-') || item.level >= ceiling - 2),
+    );
+    const chosen = pool[Math.floor(random() * pool.length)];
+    if (chosen) rewards.push({ item: chosen[0], qty: 1 });
   }
   return rewards;
 }
@@ -1667,7 +1671,8 @@ export function unpackSave(text: string): GameState {
     p.game !== 'tails-city' ||
     !s ||
     s.version !== 1 ||
-    !int(s.region, 0, 5) ||
+    (s.worldRevision !== undefined && s.worldRevision !== 2) ||
+    !int(s.region, 0, REGIONS.length - 1) ||
     !Number.isFinite(s.x) ||
     !Number.isFinite(s.y) ||
     s.x < 24 ||
@@ -1685,12 +1690,12 @@ export function unpackSave(text: string): GameState {
     ) ||
     !Array.isArray(s.dogs) ||
     s.dogs.length < 1 ||
-    s.dogs.length > 13 ||
+    s.dogs.length > REGIONS.length * 2 + 1 ||
     !s.dogs.every(
       (d: Dog) =>
         d &&
         typeof d.id === 'string' &&
-        /^(starter|dog-[0-5](-b)?)$/.test(d.id) &&
+        /^(starter|dog-(?:[0-9]|1[01])(-b)?)$/.test(d.id) &&
         typeof d.name === 'string' &&
         d.name.length > 0 &&
         d.name.length <= 20 &&
@@ -1708,15 +1713,66 @@ export function unpackSave(text: string): GameState {
     ) ||
     new Set(s.dogs.map((d: Dog) => d.id)).size !== s.dogs.length ||
     !s.dogs.some((d: Dog) => d.id === s.active) ||
-    !ids(s.defeated, /^(enemy-[0-5]-[01]|captain-[0-5])$/, 18) ||
-    !ids(s.recruited, /^dog-[0-5](-b)?$/, 12) ||
-    !ids(s.looted, /^loot-[0-5](-b)?$/, 12) ||
+    !ids(
+      s.defeated,
+      /^(enemy-(?:[0-9]|1[01])-[01]|captain-(?:[0-9]|1[01]))$/,
+      REGIONS.length * 3,
+    ) ||
+    !ids(s.recruited, /^dog-(?:[0-9]|1[01])(-b)?$/, REGIONS.length * 2) ||
+    !ids(s.looted, /^loot-(?:[0-9]|1[01])(-b)?$/, REGIONS.length * 2) ||
     !Array.isArray(s.visited) ||
     !s.visited.includes(s.region) ||
-    !s.visited.every((n: number) => int(n, 0, 5)) ||
+    !s.visited.every((n: number) => int(n, 0, REGIONS.length - 1)) ||
     !int(s.steps, 0, 999999999) ||
     !int(s.seconds, 0, 999999999) ||
     typeof s.won !== 'boolean'
+  )
+    bad();
+  // Move the former village cave without discarding legacy progress or equipment.
+  if (s.worldRevision !== 2) {
+    const relocate = (id: string) =>
+      id
+        .replace(/^(cave|dragon|cat|raid)-1(?=-|$)/, '$1-6')
+        .replace(/^captain-1$/, 'captain-6');
+    for (const key of ['raids', 'rescued'])
+      if (Array.isArray(s[key]))
+        s[key] = [...new Set(s[key].map((n: number) => (n === 1 ? 6 : n)))];
+    for (const key of ['defeated', 'caveCleared'])
+      if (Array.isArray(s[key]))
+        s[key] = [
+          ...new Set(
+            s[key].map((id: string) =>
+              typeof id === 'string' ? relocate(id) : id,
+            ),
+          ),
+        ];
+    for (const key of ['quests', 'progress', 'enemyHealth', 'respawnAt'])
+      if (s[key] && typeof s[key] === 'object' && !Array.isArray(s[key]))
+        s[key] = Object.fromEntries(
+          Object.entries(s[key]).map(([id, v]) => [relocate(id), v]),
+        );
+    if (Array.isArray(s.drops))
+      for (const drop of s.drops)
+        if (drop?.region === 1 && drop.place === 'cave') drop.region = 6;
+    if (s.region === 1 && s.place === 'cave') {
+      s.region = 6;
+      s.outside = { x: 1024, y: 1580 };
+    }
+    if (s.place === 'shop' && !isTown(s.region)) {
+      s.region = 1;
+      s.outside = { x: 840, y: 970 };
+    }
+    s.visited = [
+      ...new Set([
+        ...s.visited,
+        s.region,
+        ...(s.raids?.includes(6) ? [6] : []),
+      ]),
+    ];
+  }
+  if (
+    (s.place === 'shop' && !isTown(s.region)) ||
+    (s.place === 'cave' && !RAIDS[s.region])
   )
     bad();
   const defaults = newGame(),
@@ -1790,10 +1846,10 @@ export function unpackSave(text: string): GameState {
     !!value &&
     typeof value === 'object' &&
     !Array.isArray(value) &&
-    Object.entries(value).length <= 70 &&
+    Object.entries(value).length <= REGIONS.length * 12 &&
     Object.entries(value).every(
       ([id, n]) =>
-        /^(enemy-[0-5]-[01]|captain-[0-5]|mob-[0-5]-[01]|cave-[0-5]-[012]|dragon-[0-5])$/.test(
+        /^(enemy-(?:[0-9]|1[01])-[01]|captain-(?:[0-9]|1[01])|mob-(?:[0-9]|1[01])-[01]|cave-(?:[0-9]|1[01])-[012]|dragon-(?:[0-9]|1[01]))$/.test(
           id,
         ) && int(n, 0, 999999999),
     );
@@ -1813,9 +1869,9 @@ export function unpackSave(text: string): GameState {
     caveCleared = s.caveCleared ?? [];
   const regionList = (v: unknown) =>
     Array.isArray(v) &&
-    v.length <= 6 &&
+    v.length <= REGIONS.length &&
     new Set(v).size === v.length &&
-    v.every((n) => int(n, 0, 5));
+    v.every((n) => int(n, 0, REGIONS.length - 1));
   if (
     !quests ||
     Array.isArray(quests) ||
@@ -1830,10 +1886,13 @@ export function unpackSave(text: string): GameState {
       ([id, v]) =>
         !QUESTS.some((q) => q.metric === id) || !int(v, 0, 999999999),
     ) ||
-    !ids(talked, /^(elder|detective|vet|worker)$/, 4) ||
+    !Array.isArray(talked) ||
+    talked.length > NPCS.length ||
+    new Set(talked).size !== talked.length ||
+    !talked.every((id: string) => NPCS.some((n) => n.id === id)) ||
     !regionList(rescued) ||
     !regionList(raids) ||
-    !ids(caveCleared, /^cave-[0-5]-[012]$/, 18) ||
+    !ids(caveCleared, /^cave-(?:[0-9]|1[01])-[012]$/, REGIONS.length * 3) ||
     (s.npc !== undefined && s.npc !== null && !NPCS.some((n) => n.id === s.npc))
   )
     bad();
@@ -1846,7 +1905,7 @@ export function unpackSave(text: string): GameState {
       (d: Drop) =>
         d &&
         /^drop-[0-9]+-[0-9]+$/.test(d.id) &&
-        int(d.region, 0, 5) &&
+        int(d.region, 0, REGIONS.length - 1) &&
         Object.hasOwn(ITEMS, d.item) &&
         int(d.qty, 1, 999999999) &&
         int(d.createdAt, 0, s.seconds) &&
@@ -1888,6 +1947,7 @@ export function unpackSave(text: string): GameState {
       }
   const result: GameState = {
     ...s,
+    worldRevision: 2,
     appearance: { ...appearance },
     playerName,
     party,

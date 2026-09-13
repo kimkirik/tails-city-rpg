@@ -69,8 +69,11 @@ test('invalid quantities, unavailable items, expanded bags, distant counters and
 test('selling last equipped items removes bonuses and clamps HP without losing remaining gear', () => {
   let s = shop('armory');
   s.coins = 20000;
-  for (const id of ['dragonblade', 'hoodie', 'ribbon'])
-    s = act(s, { type: 'buy', id }).state;
+  for (const id of ['dragonblade', 'hoodie', 'ribbon']) {
+    putItem(s, id);
+    s = act(s, { type: 'item', id }).state;
+  }
+  assert.equal(s.weapon, 'dragonblade');
   putItem(s, 'hoodie');
   s.hero.hp = heroStats(s).maxHp;
   s = act(s, { type: 'sell', id: 'hoodie', qty: 1 }).state;
@@ -95,6 +98,14 @@ test('all sale prices stay below purchase prices and a buy/sell round trip canno
     s.bag = Array(s.capacity).fill(null);
     s.coins = 200000;
     s.hero.level = item.level;
+    if (item.source !== 'shop') {
+      assert.equal(act(s, { type: 'buy', id }).state, s);
+      putItem(s, id);
+      const sold = act(s, { type: 'sell', id, qty: 1 }).state;
+      assert.equal(countItem(sold, id), 0);
+      assert.equal(sold.coins, s.coins + sellPrice(id));
+      continue;
+    }
     const bought = act(s, { type: 'buy', id }).state;
     const sold = act(bought, { type: 'sell', id, qty: 1 }).state;
     assert.equal(sold.coins, s.coins - item.price + sellPrice(id));

@@ -8,6 +8,27 @@ export const RARITIES = [
   '전설',
   '신화',
 ] as const;
+export const ITEM_SOURCES = {
+  shop: '상점 · 일반 전리품',
+  monster: '몬스터 확률 드롭',
+  raid: '레이드 전용 드롭',
+} as const;
+const monsterOnly = new Set([
+  'sword',
+  'stun',
+  'ranger',
+  'bell',
+  'dogtonic',
+  'tonic',
+]);
+const raidOnly = new Set([
+  'lunar',
+  'dragonblade',
+  'starlight',
+  'dragoncoat',
+  'pendant',
+  'crown',
+]);
 const districts = [
   '솔빛',
   '연두',
@@ -77,13 +98,18 @@ const baseLevels: Record<string, number> = {
 
 // Stable recipes are the save-file contract: never reorder families or change IDs.
 export function createCatalog(
-  base: Record<string, Omit<ItemDef, 'level' | 'rarity'>>,
+  base: Record<string, Omit<ItemDef, 'level' | 'rarity' | 'source'>>,
 ) {
   const catalog: Record<string, ItemDef> = {};
   for (const [id, item] of Object.entries(base)) {
     const level = baseLevels[id] ?? 1;
     catalog[id] = {
       ...item,
+      source: raidOnly.has(id)
+        ? 'raid'
+        : monsterOnly.has(id)
+          ? 'monster'
+          : 'shop',
       level,
       rarity: level >= 9 ? 4 : level >= 6 ? 3 : level >= 3 ? 2 : 0,
     };
@@ -122,6 +148,7 @@ export function createCatalog(
         (family < 6 ? 22 + level * 8 : 70 + Math.pow(level, 1.3) * 28) *
           (1 + rarity * 0.35 + variant * 0.04),
       ),
+      source: variant === 9 ? 'raid' : variant === 8 ? 'monster' : 'shop',
       shop: family < 6 ? 'convenience' : 'armory',
       desc: '',
     };

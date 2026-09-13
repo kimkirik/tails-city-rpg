@@ -1,3 +1,4 @@
+import { fieldGame as newGame } from './test-fixtures.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { KeyboardMovement } from './keyboard.ts';
@@ -10,7 +11,6 @@ import {
   type Appearance,
 } from './appearance.ts';
 import {
-  newGame,
   act,
   packSave,
   unpackSave,

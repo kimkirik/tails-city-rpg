@@ -1,3 +1,4 @@
+import { fieldGame } from './test-fixtures.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -12,6 +13,7 @@ import {
   countItem,
   enemyStats,
   REGIONS,
+  ITEMS,
   type GameState,
   type Entity,
 } from './model.ts';
@@ -53,7 +55,7 @@ test('bags expand from25 to1000 at the convenience counter without losing items'
   assert.deepEqual(unpackSave(packSave(s)), s);
 });
 test('full bag cannot partially consume loot or coins', () => {
-  let s = newGame();
+  let s = fieldGame();
   s.bag = Array.from({ length: 25 }, () => ({ item: 'berry', qty: 9 }));
   const e = entities(s).find((e) => e.kind === 'loot')!;
   closeTo(s, e);
@@ -82,7 +84,7 @@ test('no treat denies recruitment without mutation', () => {
   assert.equal(act(s, { type: 'interact', id: e.id }).state.dogs.length, 1);
 });
 test('save restores inventory, expansion, companions, location, progression', () => {
-  let s = newGame();
+  let s = fieldGame();
   s = act(s, { type: 'expand' }).state;
   s.visited.push(1);
   s.region = 1;
@@ -116,14 +118,14 @@ test('malformed and oversized saves are rejected', () => {
   }
 });
 test('all region entities are reachable from walkable ground', () => {
-  for (let region = 0; region < 6; region++) {
+  for (let region = 0; region < REGIONS.length; region++) {
     const s = newGame();
     s.region = region;
     for (const e of entities(s)) closeTo(s, e);
   }
 });
-test('all six regions connected; travel only through correct gates or discovered shortcuts', () => {
-  let s = newGame();
+test('all twelve regions connected; travel only through correct gates or discovered shortcuts', () => {
+  let s = fieldGame();
   assert.equal(act(s, { type: 'travel', region: 5 }).state.region, 0);
   s.x = 2000;
   s.y = 970;
@@ -139,7 +141,7 @@ test('all six regions connected; travel only through correct gates or discovered
         found.add(n);
         queue.push(n);
       }
-  assert.equal(found.size, 6);
+  assert.equal(found.size, REGIONS.length);
   s.region = 2;
   s.x = 1024;
   s.y = 2000;
@@ -151,7 +153,7 @@ test('all six regions connected; travel only through correct gates or discovered
   assert.equal(s.region, 2);
 });
 test('combat awards one reward and skill cooldown is enforced', () => {
-  let s = newGame();
+  let s = fieldGame();
   const e = entities(s).find((e) => e.kind === 'enemy')!;
   closeTo(s, e);
   s = act(s, { type: 'interact', id: e.id }).state;
@@ -182,7 +184,7 @@ test('items consume a combat turn; rest revives whole party for free', () => {
   assert.equal(s.coins, 320);
 });
 test('total defeat has a recoverable checkpoint and safe retreat retains enemy damage', () => {
-  let s = newGame();
+  let s = fieldGame();
   const e = entities(s).find((e) => e.kind === 'enemy')!;
   closeTo(s, e);
   s = act(s, { type: 'interact', id: e.id }).state;
@@ -206,15 +208,17 @@ test('complete six-region campaign can be won with starter and earned rewards', 
   closeTo(s, e);
   assert.equal(act(s, { type: 'interact', id: e.id }).state.battle, null);
   s.region = 0;
-  for (const region of [0, 2, 3, 4, 5]) {
+  for (const region of [0, 6, 2, 3, 4, 5]) {
     s.region = region;
     if (!s.visited.includes(region)) s.visited.push(region);
     for (const id of entities(s)
       .filter((e) => e.kind === 'enemy' && !e.id.startsWith('mob-'))
       .map((e) => e.id)) {
+      s.region = 1;
       const rest = entities(s).find((e) => e.kind === 'rest')!;
       closeTo(s, rest);
       s = act(s, { type: 'interact', id: rest.id }).state;
+      s.region = region;
       const enemy = entities(s).find((e) => e.id === id)!;
       closeTo(s, enemy);
       s = act(s, { type: 'interact', id }).state;
@@ -238,7 +242,7 @@ test('complete six-region campaign can be won with starter and earned rewards', 
     }
   }
   assert.equal(s.won, true);
-  assert.equal(s.defeated.length, 16);
+  assert.equal(s.defeated.length, 18);
   assert.equal(unpackSave(packSave(s)).won, true);
 });
 test('legacy Kongi saves become Richi without changing progress or other Shibas', () => {
@@ -313,7 +317,7 @@ test('shop has a walkable interior, counter purchases and an exit to the origina
   assert.deepEqual(unpackSave(packSave(s)), s);
 });
 test('weapons boost only the traveler and equipment changes require safety', () => {
-  let s = newGame();
+  let s = fieldGame();
   const e = entities(s).find((e) => e.captain)!;
   putItem(s, 'bat');
   putItem(s, 'sword');
@@ -332,7 +336,7 @@ test('village is safe and every other region has living combat enemies', () => {
     const s = newGame();
     s.region = region.id;
     const enemies = entities(s).filter((e) => e.kind === 'enemy');
-    if (region.id === 1) assert.equal(enemies.length, 0);
+    if (region.town) assert.equal(enemies.length, 0);
     else {
       assert.ok(enemies.length >= 5);
       for (const e of enemies) {
@@ -344,7 +348,7 @@ test('village is safe and every other region has living combat enemies', () => {
   }
 });
 test('enemy damage persists after retreat and patrols respawn with full health after 45 seconds', () => {
-  let s = newGame();
+  let s = fieldGame();
   const e = entities(s).find((e) => e.id === 'mob-0-0')!;
   closeTo(s, e);
   s = act(s, { type: 'interact', id: e.id }).state;
@@ -394,8 +398,8 @@ test('older saves receive shop, equipment and enemy defaults, invalid equipment 
   assert.throws(() => unpackSave(JSON.stringify(raw)));
 });
 
-test('each defeated mob drops many reachable supplies, captains also drop a weapon', () => {
-  for (const region of [0, 2, 3, 4, 5]) {
+test('each defeated mob drops many reachable supplies, captains also drop usable equipment', () => {
+  for (const region of [0, 6, 2, 3, 4, 5]) {
     let s = newGame();
     s.region = region;
     currentDog(s).atk = 1000;
@@ -415,7 +419,7 @@ test('each defeated mob drops many reachable supplies, captains also drop a weap
     if (region === 5)
       s.defeated = [
         'captain-0',
-        'captain-1',
+        'captain-6',
         'captain-2',
         'captain-3',
         'captain-4',
@@ -425,12 +429,17 @@ test('each defeated mob drops many reachable supplies, captains also drop a weap
     const victory = act(s, { type: 'attack' });
     assert.ok(victory.loot!.reduce((n, d) => n + d.qty, 0) >= 36);
     assert.ok(
-      victory.loot!.some((d) => ['bat', 'sword', 'stun'].includes(d.item)),
+      victory.loot!.some(
+        (d) =>
+          ITEMS[d.item].slot === 'weapon' ||
+          ITEMS[d.item].slot === 'clothes' ||
+          ITEMS[d.item].slot === 'accessory',
+      ),
     );
   }
 });
 test('pickup transfers only available capacity and leaves the rest without duplication', () => {
-  let s = newGame();
+  let s = fieldGame();
   currentDog(s).atk = 1000;
   const e = entities(s).find((e) => e.id === 'mob-0-0')!;
   closeTo(s, e);
@@ -462,7 +471,7 @@ test('pickup transfers only available capacity and leaves the rest without dupli
   assert.equal(stored + s.drops.reduce((n, d) => n + d.qty, 0), available);
 });
 test('ground loot is saved across travel and legacy saves receive an empty drop list', () => {
-  let s = newGame();
+  let s = fieldGame();
   currentDog(s).atk = 1000;
   const e = entities(s).find((e) => e.kind === 'enemy')!;
   closeTo(s, e);
@@ -479,14 +488,14 @@ test('ground loot is saved across travel and legacy saves receive an empty drop 
     entities(s).filter((e) => e.kind === 'drop').length,
     drops.length,
   );
-  const raw = JSON.parse(packSave(newGame()));
+  const raw = JSON.parse(packSave(fieldGame()));
   delete raw.state.drops;
   assert.deepEqual(unpackSave(JSON.stringify(raw)).drops, []);
   raw.state.drops = [{ ...drops[0], qty: -1 }];
   assert.throws(() => unpackSave(JSON.stringify(raw)));
 });
 test('large uncollected loot piles merge without losing items or overflowing the save', () => {
-  let s = newGame(),
+  let s = fieldGame(),
     total = 0;
   currentDog(s).atk = 1000;
   for (let i = 0; i < 40; i++) {

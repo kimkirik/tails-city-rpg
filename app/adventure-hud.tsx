@@ -26,6 +26,7 @@ import { Progress } from '@/components/ui/progress';
 import {
   SIZE,
   REGIONS,
+  isTown,
   ITEMS,
   WEAPONS,
   RAIDS,
@@ -67,6 +68,7 @@ export default function AdventureHUD({
   notice,
   onMessage,
   onAction,
+  onNavigate,
   onOpen,
   zoom,
   onZoom,
@@ -86,6 +88,7 @@ export default function AdventureHUD({
   notice: string;
   onMessage: (text: string) => void;
   onAction: (a: Action) => unknown;
+  onNavigate: (target: { id?: string; edge?: number }) => void;
   onOpen: (p: OpenPanel) => void;
   zoom: number;
   onZoom: (n: number) => void;
@@ -145,6 +148,15 @@ export default function AdventureHUD({
                 : region.name}
           </span>
         </button>
+        <span
+          className={`zone-badge ${isTown(state.region) && !cave ? 'safe' : 'combat'}`}
+        >
+          {indoors || (isTown(state.region) && !cave)
+            ? '안전 마을'
+            : cave
+              ? '레이드'
+              : '전투 지역'}
+        </span>
         <span className="wallet-badge">◈ {state.coins.toLocaleString()}</span>
       </div>
       {!state.battle && !layer && (
@@ -271,7 +283,7 @@ export default function AdventureHUD({
                       : region.name}
                 </strong>
                 <span>
-                  {indoors || (state.region === 1 && !cave)
+                  {indoors || (isTown(state.region) && !cave)
                     ? '안전 지역'
                     : cave
                       ? '레이드 지역'
@@ -280,8 +292,7 @@ export default function AdventureHUD({
               </div>
               <div
                 className="layer-minimap"
-                role="img"
-                aria-label={`${region.name} 미니맵. 노란 점은 내 위치, 붉은 점은 적입니다.`}
+                aria-label={`${region.name} 미니맵. 주민과 상점 표식을 누르면 길을 안내합니다.`}
                 style={{
                   backgroundImage: `url(${indoors ? '/art/shop-interior.png' : cave ? '/art/raids/cave-map.png' : `/art/regions/${state.region}.png`})`,
                   backgroundSize: `${(1254 / fw) * 100}% ${(1254 / fh) * 100}%`,
@@ -300,15 +311,28 @@ export default function AdventureHUD({
                     ].includes(e.kind),
                   )
                   .map((e) => (
-                    <i
+                    <button
                       key={e.id}
                       className={`map-marker ${e.kind}`}
                       title={e.name}
+                      aria-label={`${e.name} 길 안내`}
+                      onClick={() => {
+                        onNavigate({ id: e.id });
+                        setLayer(null);
+                      }}
                       style={{
                         left: `${(e.x / SIZE) * 100}%`,
                         top: `${(e.y / SIZE) * 100}%`,
                       }}
-                    />
+                    >
+                      {e.kind === 'npc'
+                        ? '💬'
+                        : e.kind === 'shop'
+                          ? '▣'
+                          : e.kind === 'cave'
+                            ? '◆'
+                            : ''}
+                    </button>
                   ))}
                 {!indoors &&
                   !cave &&
@@ -353,6 +377,84 @@ export default function AdventureHUD({
                 <span>● 적</span>
                 <span>● 상점</span>
                 <span>◆ 주민·동굴</span>
+              </div>
+              <div className="local-guide">
+                <strong>
+                  {indoors
+                    ? '상점 안내'
+                    : isTown(state.region) && !cave
+                      ? '마을 안내'
+                      : '탐험 안내'}
+                </strong>
+                <p>목적지를 누르면 길을 따라 이동해요.</p>
+                <div className="guide-destinations">
+                  {entities(state)
+                    .filter((e) =>
+                      [
+                        'npc',
+                        'shop',
+                        'merchant',
+                        'rest',
+                        'cave',
+                        'exit',
+                      ].includes(e.kind),
+                    )
+                    .map((e) => (
+                      <button
+                        key={e.id}
+                        onClick={() => {
+                          onNavigate({ id: e.id });
+                          setLayer(null);
+                        }}
+                      >
+                        <span>
+                          {e.kind === 'npc'
+                            ? '💬'
+                            : e.kind === 'shop'
+                              ? '🛍️'
+                              : e.kind === 'rest'
+                                ? '⛺'
+                                : e.kind === 'cave'
+                                  ? '◆'
+                                  : '↪'}{' '}
+                          {e.name}
+                        </span>
+                        <small>
+                          {e.kind === 'npc'
+                            ? '주민에게 대화'
+                            : e.kind === 'cave'
+                              ? '레이드 입구'
+                              : '길 안내'}
+                        </small>
+                      </button>
+                    ))}
+                </div>
+                {!indoors && !cave && (
+                  <div className="guide-exits">
+                    {region.neighbors.map(
+                      (n, i) =>
+                        n >= 0 && (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              onNavigate({ edge: i });
+                              setLayer(null);
+                            }}
+                          >
+                            <span>
+                              {['↑ 북쪽', '→ 동쪽', '↓ 남쪽', '← 서쪽'][i]} ·{' '}
+                              {REGIONS[n].name}
+                            </span>
+                            <small>
+                              {isTown(n)
+                                ? '안전 마을'
+                                : `전투 지역 Lv.${REGIONS[n].level}+`}
+                            </small>
+                          </button>
+                        ),
+                    )}
+                  </div>
+                )}
               </div>
               <button
                 className="layer-wide-button"

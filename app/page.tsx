@@ -23,6 +23,7 @@ import {
   currentDog,
   dogDescription,
   REGIONS,
+  isTown,
   BREEDS,
   ITEMS,
   act,
@@ -36,7 +37,7 @@ import {
   type Action,
   type Result,
 } from '@/lib/game/model';
-import World from './world';
+import World, { type NavigationRequest } from './world';
 import {
   Inventory,
   Shop,
@@ -74,6 +75,7 @@ export default function Home() {
   const install = useGameInstall();
   const [state, setState] = useState<GameState>(newGame);
   const game = useRef(state);
+  const navigation = useRef<NavigationRequest | null>(null);
   const [panel, setPanel] = useState<Panel>(null);
   const paused = useRef(false);
   const [notice, setNotice] = useState('');
@@ -343,7 +345,7 @@ export default function Home() {
         }
       } else
         addMessage(
-          '방향키 또는 길을 터치해 이동하세요. 강아지나 상점을 터치하면 다가갑니다. 공원 동쪽의 연두 마을에서 주민들의 의뢰를 받아 보세요.',
+          '연두 마을에서 모험을 시작해요. 미니맵에서 주민·상점·출구를 선택하면 길을 따라 이동합니다. 마을 밖 전투 지역에서 전리품을 찾아보세요.',
         );
     } catch {
       addMessage('가고 싶은 길을 터치해 이동하세요.');
@@ -555,6 +557,7 @@ export default function Home() {
       >
         <World
           game={game}
+          navigation={navigation}
           paused={paused}
           onAction={dispatch}
           onTick={tick}
@@ -640,6 +643,13 @@ export default function Home() {
         )}
       </section>
       <AdventureHUD
+        onNavigate={(target) => {
+          navigation.current = {
+            ...target,
+            region: game.current.region,
+            place: game.current.place,
+          };
+        }}
         state={state}
         messages={messages}
         notice={notice}
@@ -745,7 +755,9 @@ export default function Home() {
                         backgroundPosition: 'center',
                       }}
                     />
-                    <span className="region-index">0{r.id + 1}</span>
+                    <span className="region-index">
+                      {String(r.id + 1).padStart(2, '0')}
+                    </span>
                     {state.visited.includes(r.id) && (
                       <span className="visited-badge">
                         {r.id === state.region ? '현재 위치' : '발견함'}
@@ -755,9 +767,21 @@ export default function Home() {
                       <small>{r.en}</small>
                       <h3>{r.name}</h3>
                       <span>
-                        {r.tag}
+                        {r.town
+                          ? '안전 마을 · 상점·주민'
+                          : '전투 지역 · 몬스터·레이드'}
                         <b>Lv.{r.level}+</b>
                       </span>
+                      <p className="region-connections">
+                        {r.neighbors
+                          .map((n, i) =>
+                            n >= 0
+                              ? `${['↑', '→', '↓', '←'][i]} ${REGIONS[n].name}`
+                              : null,
+                          )
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
                     </div>
                   </button>
                 ))}
@@ -976,7 +1000,7 @@ export default function Home() {
                   터치하면 밖으로 나갑니다.
                 </p>
                 <p>
-                  연두 마을은 안전 지역입니다. 그 밖의 지역에서 몹을 쓰러뜨리면
+                  네 마을에는 상점과 주민만 있어요. 여덟 전투 지역에서 몹을 쓰러뜨리면
                   전리품이 쏟아집니다. 가까이 가면 자동으로 줍고, 가방이 가득
                   차면 남은 아이템은 바닥에 보관됩니다.
                 </p>

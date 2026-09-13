@@ -299,6 +299,10 @@ export function render(
         c.beginPath();
         c.ellipse(p.x, p.y, 18 * z, 7 * z, 0, 0, 7);
         c.fill();
+        c.save();
+        if (e.dragon && s.region >= 8)
+          c.filter =
+            s.region === 8 ? 'hue-rotate(300deg)' : 'hue-rotate(165deg)';
         e.kind === 'dog'
           ? animatedSprite(
               c,
@@ -324,7 +328,16 @@ export function render(
               art.poodle,
             )
           : e.dragon
-            ? atlasSprite(c, art.dragons, s.region, 3, 2, p.x, p.y, 190 * z)
+            ? atlasSprite(
+                c,
+                art.dragons,
+                RAIDS[s.region].sprite,
+                3,
+                2,
+                p.x,
+                p.y,
+                190 * z,
+              )
             : e.creature !== undefined
               ? atlasSprite(
                   c,
@@ -344,6 +357,7 @@ export function render(
                   p.y,
                   (e.captain ? 112 : 94) * z,
                 );
+        c.restore();
         label(
           c,
           `${e.name} Lv.${entityLevel(s, e)}`,
@@ -385,6 +399,12 @@ export function render(
           c.fillText(`${enemy.hp} / ${enemy.maxHp}`, p.x, by + 14);
         }
       } else if (e.kind === 'npc' || e.kind === 'cat' || e.kind === 'cave') {
+        if (e.kind === 'npc') {
+          c.fillStyle = '#fff1a87a';
+          c.beginPath();
+          c.ellipse(p.x, p.y, 36 * z, 12 * z, 0, 0, Math.PI * 2);
+          c.fill();
+        }
         const index =
           e.kind === 'npc'
             ? NPCS.find((n) => n.id === e.npc)!.sprite
@@ -399,7 +419,7 @@ export function render(
           3,
           p.x,
           p.y,
-          (e.kind === 'cave' ? 145 : 110) * z,
+          (e.kind === 'cave' ? 145 : e.kind === 'npc' ? 148 : 110) * z,
         );
         label(
           c,
@@ -410,7 +430,16 @@ export function render(
           e.kind === 'npc' ? '#56528feb' : '#384658eb',
         );
         if (e.kind === 'npc')
-          label(c, '! 의뢰 · 대화', p.x, p.y - 90 * z, '#ffdc81', '#40385ce8');
+          label(
+            c,
+            NPCS.find((n) => n.id === e.npc)?.region === 1
+              ? '💬 주민 · 의뢰'
+              : '💬 주민 · 길 안내',
+            p.x,
+            p.y - 132 * z + Math.sin(t / 320) * 3,
+            '#ffea9d',
+            '#40385cf5',
+          );
         if (e.kind === 'cave')
           label(
             c,
