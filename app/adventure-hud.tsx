@@ -32,6 +32,8 @@ import {
   NPCS,
   QUESTS,
   heroStats,
+  xpNeeded,
+  MAX_LEVEL,
   questProgress,
   closedGates,
   gatePoints,
@@ -127,7 +129,9 @@ export default function AdventureHUD({
           aria-label="플레이어 상태와 이름 변경"
         >
           <UserRound size={18} />
-          <strong>{state.playerName}</strong>
+          <strong>
+            {state.playerName} <small>Lv.{state.hero.level}</small>
+          </strong>
         </button>
         <button className="location-badge" onClick={() => toggle('map')}>
           <Map size={16} />
@@ -403,15 +407,33 @@ export default function AdventureHUD({
               </button>
               <div className="hero-status">
                 <strong>
-                  {state.playerName} {state.hero.poison ? '· 중독' : ''}
+                  {state.playerName} · Lv.{state.hero.level}{' '}
+                  {state.hero.poison ? '· 중독' : ''}
                 </strong>
                 <Progress value={(state.hero.hp / stats.maxHp) * 100} />
                 <p>
                   HP {state.hero.hp}/{stats.maxHp} · 공격 {stats.attack} · 방어{' '}
                   {stats.defense}
                 </p>
+                <div className="level-progress">
+                  <Progress
+                    value={
+                      state.hero.level === MAX_LEVEL
+                        ? 100
+                        : (state.hero.xp / xpNeeded(state.hero.level)) * 100
+                    }
+                  />
+                  <span>
+                    {state.hero.level === MAX_LEVEL
+                      ? '최고 레벨'
+                      : `EXP ${state.hero.xp} / ${xpNeeded(state.hero.level)}`}
+                  </span>
+                </div>
                 <b>♥ 매력 {stats.charm}</b>
-                <small>높은 매력으로 새로운 강아지의 마음을 열어요.</small>
+                <small>
+                  전투·의뢰로 함께 성장해요. 레벨업: HP +12, 공격 +3. 높은
+                  매력은 새 친구를 만나는 데 도움이 돼요.
+                </small>
               </div>
               <div className="status-weapon">
                 <span>장착 무기</span>
@@ -453,6 +475,20 @@ export default function AdventureHUD({
                   <span>
                     HP {dog.hp} / {dog.maxHp} · 공격 {dog.atk}
                   </span>
+                  <div className="level-progress">
+                    <Progress
+                      value={
+                        dog.level === MAX_LEVEL
+                          ? 100
+                          : (dog.xp / xpNeeded(dog.level)) * 100
+                      }
+                    />
+                    <span>
+                      {dog.level === MAX_LEVEL
+                        ? '최고 레벨'
+                        : `EXP ${dog.xp} / ${xpNeeded(dog.level)}`}
+                    </span>
+                  </div>
                 </div>
               ))}
               {party.length < 2 && (

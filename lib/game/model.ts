@@ -139,6 +139,7 @@ import {
   CAVE_MOBS,
   NPCS,
   QUESTS,
+  GENERATED_BY_LEVEL,
   type EquipmentSlot,
 } from './content.ts';
 export { ITEMS, WEAPONS, RAIDS, CAVE_MOBS, NPCS, QUESTS };
@@ -172,6 +173,7 @@ export type Drop = {
   createdAt: number;
 };
 export type Enemy = {
+  level: number;
   id: string;
   name: string;
   hp: number;
@@ -191,6 +193,8 @@ export type Battle = {
   teamUsed: boolean;
 };
 export type Hero = {
+  level: number;
+  xp: number;
   hp: number;
   maxHp: number;
   atk: number;
@@ -312,7 +316,16 @@ export function newGame(): GameState {
     shopType: 'convenience',
     weapon: null,
     equipment: { clothes: null, accessory: null },
-    hero: { hp: 110, maxHp: 110, atk: 17, charm: 5, boosts: 0, poison: false },
+    hero: {
+      level: 1,
+      xp: 0,
+      hp: 110,
+      maxHp: 110,
+      atk: 17,
+      charm: 5,
+      boosts: 0,
+      poison: false,
+    },
     enemyHealth: {},
     respawnAt: {},
     kills: 0,
@@ -362,6 +375,64 @@ export function heroStats(s: GameState) {
     charm: s.hero.charm + equipped.reduce((n, i) => n + (i.charm ?? 0), 0),
     defense: equipped.reduce((n, i) => n + (i.defense ?? 0), 0),
   };
+}
+export const MAX_LEVEL = 999;
+export function xpNeeded(level: number) {
+  return level >= MAX_LEVEL ? 0 : level * 45;
+}
+export function gainExperience(s: GameState, amount: number) {
+  const raised: string[] = [];
+  for (const member of [s.hero, ...partyDogs(s)]) {
+    const before = member.level;
+    if (member.level >= MAX_LEVEL) {
+      member.xp = 0;
+      continue;
+    }
+    member.xp += amount;
+    while (member.level < MAX_LEVEL && member.xp >= xpNeeded(member.level)) {
+      member.xp -= xpNeeded(member.level);
+      member.level++;
+      member.maxHp = Math.min(
+        99999,
+        member.maxHp + (member === s.hero ? 12 : 10),
+      );
+      member.atk = Math.min(99999, member.atk + 3);
+      member.hp = member === s.hero ? heroStats(s).maxHp : member.maxHp;
+    }
+    if (member.level === MAX_LEVEL) member.xp = 0;
+    if (member.level > before)
+      raised.push(
+        `${member === s.hero ? s.playerName : (member as Dog).name} Lv.${before}→${member.level}`,
+      );
+  }
+  return raised;
+}
+export function baseEnemyLevel(s: GameState, e: Entity) {
+  const region = e.id === 'captain-1' ? 1 : s.region;
+  return (
+    REGIONS[region].level +
+    (e.dragon
+      ? 3
+      : e.captain
+        ? 2
+        : e.creature !== undefined
+          ? 1
+          : Number(e.id.endsWith('-1')))
+  );
+}
+export function entityLevel(s: GameState, e: Entity) {
+  if (e.kind === 'enemy') {
+    const base = baseEnemyLevel(s, e);
+    // Cleared caves remain worthwhile as the traveler outgrows the campaign.
+    const challenge = e.creature !== undefined && s.raids.includes(s.region);
+    return Math.min(MAX_LEVEL, Math.max(base, challenge ? s.hero.level : base));
+  }
+  if (e.kind === 'dog')
+    return Math.max(1, s.region + 1) + Number(e.id.endsWith('-b'));
+  if (e.kind === 'npc') return NPCS.find((n) => n.id === e.npc)?.level ?? 1;
+  if (e.kind === 'merchant') return e.name.includes('태오') ? 20 : 12;
+  if (e.kind === 'cat') return REGIONS[s.region].level;
+  return 0;
 }
 export function charmNeeded(id: string, region: number) {
   return 5 + region * 5 + (id.endsWith('-b') ? 4 : 0);
@@ -872,10 +943,12 @@ export function act(source: GameState, a: Action): Result {
     s.coins += q.coins;
     s.hero.charm += q.charm;
     s.quests[q.id] = 'claimed';
+    const questXp = 45 + q.goal * 15;
+    const leveled = gainExperience(s, questXp);
     return {
       state: s,
       event: 'quest',
-      message: `「${q.title}」 완료! +${q.coins} 코인 · 매력 +${q.charm}`,
+      message: `「${q.title}」 완료! +${q.coins} 코인 · 매력 +${q.charm} · 동행 EXP +${questXp}${leveled.length ? ` · 레벨업! ${leveled.join(', ')}` : ''}`,
     };
   }
   if (a.type === 'interact') {
@@ -985,7 +1058,7 @@ export function act(source: GameState, a: Action): Result {
         );
       if (!takeItem(s, 'treat'))
         return fail('친구 간식이 필요해요. 편의점에서 구할 수 있어요.');
-      s.dogs.push(makeDog(e.id, e.name, e.breed!, Math.max(1, s.region + 1)));
+      s.dogs.push(makeDog(e.id, e.name, e.breed!, entityLevel(s, e)));
       s.recruited.push(e.id);
       if (s.party.length < 2) s.party.push(e.id);
       return {
@@ -1086,6 +1159,10 @@ export function act(source: GameState, a: Action): Result {
       return fail('이미 보유한 장비예요.');
     if (item.capacity && s.capacity >= item.capacity)
       return fail('현재 가방이 같거나 더 큽니다.');
+    if (s.hero.level < item.level)
+      return fail(
+        `여행자 Lv.${item.level}에 구입할 수 있어요. 현재 Lv.${s.hero.level}`,
+      );
     if (s.coins < item.price) return fail('코인이 부족해요.');
     if (item.capacity) {
       s.bag.push(...Array(item.capacity - s.capacity).fill(null));
@@ -1229,19 +1306,16 @@ export function act(source: GameState, a: Action): Result {
         if (en.id.startsWith('enemy-'))
           s.progress.thieves = (s.progress.thieves ?? 0) + 1;
       }
-      for (const member of partyDogs(s)) {
-        member.xp += 35 + en.region * 15 + (en.captain ? 45 : 0);
-        member.bond++;
-        while (member.xp >= member.level * 45) {
-          member.xp -= member.level * 45;
-          member.level++;
-          member.maxHp += 10;
-          member.atk += 3;
-          member.hp = member.maxHp;
-        }
-      }
+      const xp =
+        35 +
+        en.region * 15 +
+        (en.captain ? 45 : 0) +
+        Math.max(0, en.level - REGIONS[en.region].level - 3) * 12;
+      const leveled = gainExperience(s, xp);
+      for (const member of partyDogs(s))
+        member.bond = Math.min(999999, member.bond + 1);
       s.battle = null;
-      message = `승리! +${reward} 코인 · 전리품 ${loot.reduce((n, v) => n + v.qty, 0)}개${en.dragon ? ' · 용 해방! 매력 +2' : ''}`;
+      message = `승리! +${reward} 코인 · 전리품 ${loot.reduce((n, v) => n + v.qty, 0)}개${en.dragon ? ' · 용 해방! 매력 +2' : ''}${s.drops.length >= 840 ? ' · 바닥에 못 놓은 물품은 판매가로 환전' : ''} · 동행 EXP +${xp}${leveled.length ? ` · 레벨업! ${leveled.join(', ')}` : ''}`;
       event = 'win';
       if (en.id === 'captain-5') s.won = true;
     } else {
@@ -1344,18 +1418,26 @@ function equip(s: GameState, id: string, slot: EquipmentSlot) {
   s.hero.hp = Math.min(max, s.hero.hp + Math.max(0, max - oldMax));
 }
 export function enemyStats(s: GameState, e: Entity): Enemy {
+  const level = entityLevel(s, e),
+    bonus = Math.max(0, level - baseEnemyLevel(s, e));
   const maxHp = e.dragon
     ? 210 + s.region * 55
     : e.creature !== undefined
       ? 60 + s.region * 20
       : (e.captain ? 125 : 45) + s.region * (e.captain ? 30 : 18);
+  const variant = Number(
+    !e.captain && e.creature === undefined && e.id.endsWith('-1'),
+  );
+  const scaledHp = maxHp + bonus * 16 + variant * 8;
   const damaged = s.enemyHealth[e.id];
   return {
     id: e.id,
     name: e.name,
-    hp: damaged > 0 ? Math.min(damaged, maxHp) : maxHp,
-    maxHp,
-    atk: (e.dragon ? 14 : e.captain ? 12 : 8) + s.region * 3,
+    level,
+    hp: damaged > 0 ? Math.min(damaged, scaledHp) : scaledHp,
+    maxHp: scaledHp,
+    atk:
+      (e.dragon ? 14 : e.captain ? 12 : 8) + s.region * 3 + bonus * 2 + variant,
     captain: !!e.captain,
     region: s.region,
     dragon: e.dragon,
@@ -1400,39 +1482,70 @@ function enemyTurn(s: GameState, id: string, multiplier: number): CounterHit {
   b.cooldown = Math.max(0, b.cooldown - 1);
   return { actorId: id, damage, poisonDamage, breath };
 }
-function dropRewards(s: GameState, en: Enemy) {
-  const actor = entities(s).find((e) => e.id === en.id),
-    origin = { x: actor?.x ?? s.x, y: actor?.y ?? s.y };
+export function lootForEnemy(s: GameState, en: Enemy) {
+  const ceiling = Math.max(1, Math.min(100, s.hero.level, en.level));
+  // Seed by encounter and kill count: saves are stable, repeat victories vary.
+  let seed =
+    [...en.id].reduce(
+      (n, c) => Math.imul(n ^ c.charCodeAt(0), 16777619),
+      s.kills + 2166136261,
+    ) >>> 0;
+  const random = () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
   const rewards = [
-    { item: 'potion', qty: 3 },
-    { item: 'berry', qty: 4 },
+    { item: 'potion', qty: 5 },
+    { item: 'berry', qty: 7 },
     { item: 'treat', qty: 2 },
-    { item: 'potion', qty: 2 },
-    { item: 'berry', qty: 3 },
     { item: 'antidote', qty: 1 },
   ];
   if (en.captain) {
     rewards.forEach((r) => (r.qty *= 2));
-    rewards.push(
-      { item: 'revive', qty: 2 },
-      { item: 'dogtonic', qty: 1 },
-      { item: 'tonic', qty: 1 },
+    for (const item of ['revive', 'dogtonic', 'tonic'])
+      if (ITEMS[item].level <= ceiling) rewards.push({ item, qty: 1 });
+    const weapons = ['bat', 'sword', 'stun', 'lunar', 'dragonblade'].filter(
+      (id) => ITEMS[id].level <= ceiling,
     );
+    rewards.push({ item: weapons.at(-1)!, qty: 1 });
   }
-  if (en.captain && !en.dragon)
-    rewards.push(
-      { item: 'treat', qty: 3 },
-      {
-        item: en.region >= 4 ? 'stun' : en.region >= 2 ? 'sword' : 'bat',
-        qty: 1,
-      },
+  const picks = en.dragon ? 5 : en.captain ? 4 : 3;
+  for (let i = 0; i < picks; i++) {
+    const level = Math.max(
+      1,
+      ceiling - Math.floor(random() * Math.min(3, ceiling)),
     );
-  if (en.dragon)
-    rewards.push({
-      item: en.region >= 4 ? 'lunar' : en.region >= 2 ? 'stun' : 'sword',
-      qty: 1,
-    });
-  else if (s.kills % 4 === 0) rewards.push({ item: 'dogtonic', qty: 1 });
+    const roll = random();
+    const rarity =
+      level >= 60 && roll > 0.97
+        ? 5
+        : level >= 20 && roll > 0.92
+          ? 4
+          : level >= 8 && roll > 0.82
+            ? 3
+            : level >= 3 && roll > 0.6
+              ? 2
+              : roll > 0.3
+                ? 1
+                : 0;
+    const pool = GENERATED_BY_LEVEL[level].filter(
+      ([, item]) =>
+        item.rarity <= rarity &&
+        (i === 0 ? !!item.heal : i === 1 && en.captain ? !!item.slot : true),
+    );
+    const chosen = pool[Math.floor(random() * pool.length)];
+    if (chosen)
+      rewards.push({
+        item: chosen[0],
+        qty: chosen[1].slot ? 1 : 2 + Math.floor(random() * 3),
+      });
+  }
+  return rewards;
+}
+function dropRewards(s: GameState, en: Enemy) {
+  const actor = entities(s).find((e) => e.id === en.id),
+    origin = { x: actor?.x ?? s.x, y: actor?.y ?? s.y };
+  const rewards = lootForEnemy(s, en);
   rewards.forEach((reward, i) => {
     const angle = i * 2.399963 + s.kills * 0.6,
       radius = 40 + (i % 3) * 27,
@@ -1466,6 +1579,15 @@ function dropRewards(s: GameState, en: Enemy) {
       ).length >= 60
     ) {
       same.qty += reward.qty;
+      return;
+    }
+    if (s.drops.length >= 840) {
+      if (same) same.qty += reward.qty;
+      else
+        s.coins = Math.min(
+          99999999,
+          s.coins + sellPrice(reward.item) * reward.qty,
+        );
       return;
     }
     s.drops.push({
@@ -1627,9 +1749,20 @@ export function unpackSave(text: string): GameState {
     bad();
   const weapon = s.weapon ?? null,
     equipment = s.equipment ?? defaults.equipment,
-    hero = s.hero ?? defaults.hero;
+    hero = { ...(s.hero ?? defaults.hero) };
+  if (hero.level === undefined && hero.xp === undefined) {
+    hero.level = Math.max(1, ...s.dogs.map((d: Dog) => d.level));
+    hero.xp = 0;
+    const increase = (hero.level - 1) * 12;
+    const oldMaxHp = hero.maxHp;
+    hero.maxHp = Math.min(99999, hero.maxHp + increase);
+    hero.hp += hero.maxHp - oldMaxHp;
+    hero.atk = Math.min(99999, hero.atk + (hero.level - 1) * 3);
+  }
   if (
     !hero ||
+    !int(hero.level, 1, MAX_LEVEL) ||
+    !int(hero.xp, 0, hero.level === MAX_LEVEL ? 0 : xpNeeded(hero.level) - 1) ||
     !int(hero.maxHp, 1, 99999) ||
     !int(hero.hp, 0, 199999) ||
     !int(hero.atk, 1, 99999) ||

@@ -65,6 +65,7 @@ export default function BattleView({
     {
       id: 'traveler',
       name: state.playerName,
+      level: state.hero.level,
       hp: hp.hero,
       maxHp: heroStats(state).maxHp,
       poison: state.hero.poison,
@@ -82,7 +83,8 @@ export default function BattleView({
         <div>
           <strong>
             {b.enemy.dragon ? '🐉 ' : ''}
-            {b.enemy.name}
+            {b.enemy.name}{' '}
+            <span className="battle-level">Lv.{b.enemy.level}</span>
           </strong>
           <small>TURN {b.turn}</small>
           <button
@@ -147,6 +149,7 @@ export default function BattleView({
             <div>
               <strong>{a.name}</strong>
               <small>
+                Lv.{a.level} ·{' '}
                 {a.poison ? '중독' : b.actor === a.id ? '행동 선택' : '대기'}
               </small>
             </div>

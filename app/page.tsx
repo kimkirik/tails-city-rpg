@@ -28,6 +28,8 @@ import {
   act,
   nearest,
   countItem,
+  xpNeeded,
+  MAX_LEVEL,
   packSave,
   unpackSave,
   type GameState,
@@ -437,6 +439,8 @@ export default function Home() {
           progress: game.current.progress,
           raids: game.current.raids,
           playerName: game.current.playerName,
+          heroLevel: game.current.hero.level,
+          heroXp: game.current.hero.xp,
           party: game.current.party,
           dogs: game.current.dogs,
           capacity: game.current.capacity,
@@ -665,7 +669,7 @@ export default function Home() {
         }}
       >
         <DialogContent
-          className={`game-dialog ${panel === 'map' ? 'map-dialog' : ''} ${panel === 'bag' ? 'bag-dialog' : ''} ${panel === 'wardrobe' ? 'wardrobe-dialog' : ''} ${panel === 'install' ? 'install-dialog' : ''}`}
+          className={`game-dialog ${panel === 'shop' ? 'catalog-dialog' : ''} ${panel === 'map' ? 'map-dialog' : ''} ${panel === 'bag' ? 'bag-dialog' : ''} ${panel === 'wardrobe' ? 'wardrobe-dialog' : ''} ${panel === 'install' ? 'install-dialog' : ''}`}
         >
           <div className="dialog-heading">
             <span className="eyebrow">
@@ -817,6 +821,20 @@ export default function Home() {
                       HP {dog.hp}/{dog.maxHp}
                     </span>
                     <span>공격 {dog.atk}</span>
+                  </div>
+                  <div className="level-progress">
+                    <Progress
+                      value={
+                        dog.level === MAX_LEVEL
+                          ? 100
+                          : (dog.xp / xpNeeded(dog.level)) * 100
+                      }
+                    />
+                    <span>
+                      {dog.level === MAX_LEVEL
+                        ? '최고 레벨'
+                        : `EXP ${dog.xp} / ${xpNeeded(dog.level)}`}
+                    </span>
                   </div>
                   <div className="dog-skill">
                     <PawPrint size={13} />

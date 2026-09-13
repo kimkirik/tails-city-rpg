@@ -1,5 +1,8 @@
+import { createCatalog } from './item-catalog.ts';
 export type EquipmentSlot = 'weapon' | 'clothes' | 'accessory';
 export type ItemDef = {
+  level: number;
+  rarity: number;
   name: string;
   icon: string;
   desc: string;
@@ -17,7 +20,7 @@ export type ItemDef = {
   charm?: number;
   defense?: number;
 };
-export const ITEMS: Record<string, ItemDef> = {
+const BASE_ITEMS: Record<string, Omit<ItemDef, 'level' | 'rarity'>> = {
   treat: {
     name: '친구 간식',
     icon: '🦴',
@@ -274,6 +277,13 @@ export const ITEMS: Record<string, ItemDef> = {
     hp: 40,
   },
 };
+export const ITEMS = createCatalog(BASE_ITEMS);
+export const ITEM_ENTRIES = Object.entries(ITEMS);
+export const GENERATED_BY_LEVEL = Array.from({ length: 101 }, (_, level) =>
+  ITEM_ENTRIES.filter(
+    ([id, item]) => id.startsWith('gear-') && item.level === level,
+  ),
+);
 export const WEAPONS: Record<string, { attack: number }> = Object.fromEntries(
   Object.entries(ITEMS)
     .filter(([, i]) => i.slot === 'weapon')
@@ -340,6 +350,7 @@ export const CAVE_MOBS = [
 export const NPCS = [
   {
     id: 'elder',
+    level: 18,
     name: '은별 할머니',
     sprite: 6,
     x: 1024,
@@ -348,6 +359,7 @@ export const NPCS = [
   },
   {
     id: 'detective',
+    level: 12,
     name: '형사 준',
     sprite: 7,
     x: 1260,
@@ -356,6 +368,7 @@ export const NPCS = [
   },
   {
     id: 'vet',
+    level: 10,
     name: '수의사 하나',
     sprite: 8,
     x: 1024,
@@ -364,6 +377,7 @@ export const NPCS = [
   },
   {
     id: 'worker',
+    level: 15,
     name: '조사대 민',
     sprite: 9,
     x: 650,

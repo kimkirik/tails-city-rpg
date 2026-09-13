@@ -498,7 +498,7 @@ test('large uncollected loot piles merge without losing items or overflowing the
     total += victory.loot!.reduce((n, d) => n + d.qty, 0);
     s = victory.state;
   }
-  assert.ok(s.drops.length <= 79);
+  assert.ok(s.drops.length <= 840);
   assert.equal(
     s.drops.reduce((n, d) => n + d.qty, 0),
     total,

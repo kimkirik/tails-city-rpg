@@ -10,7 +10,7 @@ import {
   ITEMS,
   countItem,
 } from './model.ts';
-test('earned supplies and equipment can clear all six raids without excessive turn or healing loops', () => {
+test('earned supplies and equipment can clear all six raids without excessive turn or healing loops', (t) => {
   let s = newGame();
   const results: {
     id: string;
@@ -107,6 +107,18 @@ test('earned supplies and equipment can clear all six raids without excessive tu
     fight(`dragon-${region}`);
     interact(`cave-exit-${region}`);
   }
+  t.diagnostic(
+    JSON.stringify(
+      results
+        .filter((r) => r.id.startsWith('dragon'))
+        .map(({ id, actions, heals, level }) => ({
+          id,
+          actions,
+          heals,
+          level,
+        })),
+    ),
+  );
   assert.equal(s.raids.length, 6);
   for (const fight of results) {
     assert.ok(

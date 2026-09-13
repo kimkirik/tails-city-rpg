@@ -15,6 +15,7 @@ import {
   partyDogs,
   nearest,
   enemyStats,
+  entityLevel,
   type GameState,
 } from './model';
 import { MAP_FRAMES } from './maps';
@@ -345,7 +346,7 @@ export function render(
                 );
         label(
           c,
-          e.name,
+          `${e.name} Lv.${entityLevel(s, e)}`,
           p.x,
           p.y + 20,
           e.kind === 'enemy' ? '#ffe9df' : '#fffdeb',
@@ -402,7 +403,7 @@ export function render(
         );
         label(
           c,
-          e.name,
+          e.kind === 'cave' ? e.name : `${e.name} Lv.${entityLevel(s, e)}`,
           p.x,
           p.y + 24,
           '#fff8da',
@@ -413,7 +414,9 @@ export function render(
         if (e.kind === 'cave')
           label(
             c,
-            s.raids.includes(s.region) ? '해방 완료' : '레이드 입구',
+            s.raids.includes(s.region)
+              ? `재도전 · Lv.${Math.max(REGIONS[s.region].level + 1, s.hero.level)}`
+              : `레이드 · Lv.${REGIONS[s.region].level + 3}`,
             p.x,
             p.y - 125 * z,
             RAIDS[s.region].color,
@@ -445,7 +448,9 @@ export function render(
       } else if (e.kind === 'merchant' || e.kind === 'exit') {
         label(
           c,
-          e.kind === 'merchant' ? `${e.name} · 구매하기` : '↓ 밖으로 나가기',
+          e.kind === 'merchant'
+            ? `${e.name} Lv.${entityLevel(s, e)} · 사고팔기`
+            : '↓ 밖으로 나가기',
           p.x,
           p.y - 28,
           '#fff4d6',
@@ -476,7 +481,14 @@ export function render(
         !animatedSprite(c, art.playerWalk, p.x, p.y, 110 * z, v.playerMotion)
       )
         sprite(c, art.sprites, 0, p.x, p.y, 110 * z);
-      label(c, s.playerName, p.x, p.y + 19, '#315143', '#fffbedef');
+      label(
+        c,
+        `${s.playerName} Lv.${s.hero.level}`,
+        p.x,
+        p.y + 19,
+        '#315143',
+        '#fffbedef',
+      );
     } else if (entry.kind === 'pet' && 'slot' in entry) {
       const slot = entry.slot,
         pet = party[slot],
@@ -502,7 +514,14 @@ export function render(
           art.poodle,
         );
       c.restore();
-      label(c, pet.name, p.x, p.y + 18, '#fff4d5', '#8a6945df');
+      label(
+        c,
+        `${pet.name} Lv.${pet.level}`,
+        p.x,
+        p.y + 18,
+        '#fff4d5',
+        '#8a6945df',
+      );
     }
   }
 

@@ -1,5 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { ITEM_ENTRIES } from '@/lib/game/content';
+import { RARITIES } from '@/lib/game/item-catalog';
 import {
   Backpack,
   Check,
@@ -32,6 +35,13 @@ import {
   type Action,
   type Result,
 } from '@/lib/game/model';
+function ItemLevel({ item }: { item: (typeof ITEMS)[string] }) {
+  return (
+    <span className={`item-level rarity-${item.rarity}`}>
+      Lv.{item.level} · {RARITIES[item.rarity]}
+    </span>
+  );
+}
 type Props = { state: GameState; onAction: (a: Action) => Result };
 export function Inventory({
   state: s,
@@ -141,6 +151,7 @@ export function Inventory({
             <>
               <div className="item-visual">{item.icon}</div>
               <h3>{item.name}</h3>
+              <ItemLevel item={item} />
               <p>{item.desc}</p>
               {item.slot ? (
                 <p className="equipment-tag">
@@ -226,18 +237,36 @@ export function Shop({ state: s, onAction }: Props) {
         ];
   const [category, setCategory] = useState(armory ? 'weapon' : 'supplies');
   const [mode, setMode] = useState('buy');
+  const [search, setSearch] = useState(''),
+    [page, setPage] = useState(0),
+    [scope, setScope] = useState('available');
   const stats = heroStats(s);
-  const items = Object.entries(ITEMS).filter(
-    ([, item]) =>
-      item.shop === s.shopType &&
-      (armory
-        ? item.slot === category
-        : category === 'bags'
-          ? !!item.capacity
-          : category === 'boost'
-            ? !!item.boost
-            : !item.capacity && !item.boost),
+  const items = useMemo(
+    () =>
+      ITEM_ENTRIES.filter(
+        ([id, item]) =>
+          item.shop === s.shopType &&
+          (scope === 'all' || item.level <= s.hero.level) &&
+          (!search.trim() ||
+            `${item.name} ${item.desc} ${RARITIES[item.rarity]}`.includes(
+              search.trim(),
+            )) &&
+          (armory
+            ? item.slot === category
+            : category === 'bags'
+              ? !!item.capacity
+              : category === 'boost'
+                ? !!item.boost
+                : !item.capacity && !item.boost),
+      ).sort(
+        ([a, ai], [b, bi]) =>
+          bi.level - ai.level ||
+          Number(b.startsWith('gear-')) - Number(a.startsWith('gear-')),
+      ),
+    [s.shopType, s.hero.level, scope, search, armory, category],
   );
+  const pages = Math.max(1, Math.ceil(items.length / 12)),
+    safePage = Math.min(page, pages - 1);
   return (
     <>
       <Tabs value={mode} onValueChange={(v) => setMode(String(v))}>
@@ -248,7 +277,13 @@ export function Shop({ state: s, onAction }: Props) {
       </Tabs>
       {mode === 'buy' && (
         <div className="shop-toolbar">
-          <Tabs value={category} onValueChange={(v) => setCategory(String(v))}>
+          <Tabs
+            value={category}
+            onValueChange={(v) => {
+              setCategory(String(v));
+              setPage(0);
+            }}
+          >
             <TabsList>
               {categories.map(([id, name]) => (
                 <TabsTrigger key={id} value={id}>
@@ -259,8 +294,38 @@ export function Shop({ state: s, onAction }: Props) {
           </Tabs>
         </div>
       )}
+      {mode === 'buy' && (
+        <div className="catalog-search">
+          <Input
+            aria-label="상점 아이템 검색"
+            placeholder="이름·효과·등급 검색"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(0);
+            }}
+          />
+          <Select
+            value={scope}
+            onValueChange={(v) => {
+              setScope(String(v));
+              setPage(0);
+            }}
+          >
+            <SelectTrigger aria-label="상품 레벨 범위">
+              <SelectValue>
+                {scope === 'available' ? '내 레벨 상품' : '모든 레벨'}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="available">내 레벨 상품</SelectItem>
+              <SelectItem value="all">모든 레벨</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="shop-summary">
-        ◈ {s.coins.toLocaleString()} ·{' '}
+        Lv.{s.hero.level} · ◈ {s.coins.toLocaleString()} ·{' '}
         {armory
           ? `공격 ${stats.attack} / 방어 ${stats.defense} / 매력 ${stats.charm}`
           : `가방 ${s.bag.filter(Boolean).length} / ${s.capacity}칸`}
@@ -269,7 +334,7 @@ export function Shop({ state: s, onAction }: Props) {
         <SellItems state={s} onAction={onAction} />
       ) : (
         <div className="shop-items">
-          {items.map(([id, item]) => {
+          {items.slice(safePage * 12, safePage * 12 + 12).map(([id, item]) => {
             const owned = item.capacity
               ? s.capacity >= item.capacity
               : !!item.slot && countItem(s, id) > 0;
@@ -284,6 +349,7 @@ export function Shop({ state: s, onAction }: Props) {
                 <span>{item.icon}</span>
                 <div>
                   <h3>{item.name}</h3>
+                  <ItemLevel item={item} />
                   <p>{item.desc}</p>
                   {item.slot ? (
                     <small>
@@ -302,18 +368,22 @@ export function Shop({ state: s, onAction }: Props) {
                 </div>
                 <button
                   className="primary-button"
-                  disabled={owned || s.coins < item.price}
+                  disabled={
+                    owned || s.coins < item.price || s.hero.level < item.level
+                  }
                   onClick={() => onAction({ type: 'buy', id })}
                 >
                   ◈ {item.price.toLocaleString()}
                   <small>
-                    {owned
-                      ? '보유 중'
-                      : item.capacity
-                        ? '구입 · 확장'
-                        : item.slot
-                          ? '구입 · 장착'
-                          : '1개 구입'}
+                    {s.hero.level < item.level
+                      ? `Lv.${item.level} 필요`
+                      : owned
+                        ? '보유 중'
+                        : item.capacity
+                          ? '구입 · 확장'
+                          : item.slot
+                            ? '구입 · 장착'
+                            : '1개 구입'}
                   </small>
                 </button>
               </div>
@@ -321,31 +391,103 @@ export function Shop({ state: s, onAction }: Props) {
           })}
         </div>
       )}
+      {mode === 'buy' && (
+        <div className="bag-pagination catalog-pagination">
+          <button
+            aria-label="이전 상품 페이지"
+            disabled={safePage === 0}
+            onClick={(e) => {
+              setPage(safePage - 1);
+              e.currentTarget
+                .closest('[role=dialog]')
+                ?.querySelector('.shop-items')
+                ?.scrollIntoView({ block: 'start' });
+            }}
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <span>
+            {items.length.toLocaleString()}종 · {safePage + 1} / {pages} 페이지
+          </span>
+          <button
+            aria-label="다음 상품 페이지"
+            disabled={safePage >= pages - 1}
+            onClick={(e) => {
+              setPage(safePage + 1);
+              e.currentTarget
+                .closest('[role=dialog]')
+                ?.querySelector('.shop-items')
+                ?.scrollIntoView({ block: 'start' });
+            }}
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      )}
+      {mode === 'buy' && !items.length && (
+        <p className="shop-empty">
+          조건에 맞는 상품이 없어요. 검색어나 레벨 범위를 바꿔 보세요.
+        </p>
+      )}
       <p className="shop-note">
         {mode === 'sell'
           ? '두 상점 모두 아이템을 구매가의 50%에 매입합니다(소수점 버림). 확장한 가방은 판매되지 않아요.'
           : armory
-            ? '장비는 능력치를 올립니다. 외모·옷 꾸미기는 상태 창에서 자유롭게 바꿀 수 있어요.'
-            : '큰 가방은 구입 즉시 확장되며 기존 아이템을 그대로 보관합니다.'}
+            ? '총 10,000종 아이템 · 여행자 레벨이 오르면 새 상품이 열립니다. 보유 장비는 가방에서 장착하세요.'
+            : '총 10,000종 아이템 · 레벨에 맞는 회복 물품을 찾아보세요. 큰 가방은 구입 즉시 확장됩니다.'}
       </p>
     </>
   );
 }
 function SellItems({ state: s, onAction }: Props) {
-  const owned = Object.keys(ITEMS).filter(
-    (id) => sellPrice(id) > 0 && countItem(s, id) > 0,
-  );
+  const [page, setPage] = useState(0),
+    [search, setSearch] = useState('');
+  const owned = [
+    ...new Set(s.bag.flatMap((slot) => (slot ? [slot.item] : []))),
+  ].filter((id) => sellPrice(id) > 0 && ITEMS[id].name.includes(search.trim()));
+  const pages = Math.max(1, Math.ceil(owned.length / 12)),
+    safePage = Math.min(page, pages - 1);
   return (
     <div className="shop-items" aria-label="판매할 소지품">
+      <Input
+        aria-label="판매 아이템 검색"
+        placeholder="판매할 아이템 찾기"
+        value={search}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setPage(0);
+        }}
+      />
       {owned.length ? (
-        owned.map((id) => (
-          <SellItem key={id} id={id} state={s} onAction={onAction} />
-        ))
+        owned
+          .slice(safePage * 12, safePage * 12 + 12)
+          .map((id) => (
+            <SellItem key={id} id={id} state={s} onAction={onAction} />
+          ))
       ) : (
         <p className="shop-empty">
-          판매할 아이템이 없어요. 모험에서 얻은 전리품을 가져오세요!
+          판매할 아이템이 없어요. 검색어와 소지품을 확인하세요.
         </p>
       )}
+      <div className="bag-pagination">
+        <button
+          aria-label="이전 판매 페이지"
+          disabled={!safePage}
+          onClick={() => setPage(safePage - 1)}
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <span>
+          {safePage + 1} / {pages} 페이지
+        </span>
+        <button
+          aria-label="다음 판매 페이지"
+          disabled={safePage + 1 >= pages}
+          onClick={() => setPage(safePage + 1)}
+        >
+          <ChevronRight size={18} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -365,6 +507,7 @@ function SellItem({ id, state: s, onAction }: Props & { id: string }) {
       <span aria-hidden="true">{item.icon}</span>
       <div className="sell-description">
         <h3>{item.name}</h3>
+        <ItemLevel item={item} />
         <p>
           보유 {owned}개 · 개당 ◈ {price.toLocaleString()}
         </p>
@@ -490,7 +633,9 @@ export function NpcConversation({ state: s, onAction }: Props) {
           }}
         />
         <div>
-          <h3>{npc.name}</h3>
+          <h3>
+            {npc.name} · Lv.{npc.level}
+          </h3>
           <p>{npc.line}</p>
         </div>
       </div>

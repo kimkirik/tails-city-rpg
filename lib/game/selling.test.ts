@@ -93,7 +93,8 @@ test('all sale prices stay below purchase prices and a buy/sell round trip canno
     if (item.capacity) continue;
     const s = shop(item.shop);
     s.bag = Array(s.capacity).fill(null);
-    s.coins = 20000;
+    s.coins = 200000;
+    s.hero.level = item.level;
     const bought = act(s, { type: 'buy', id }).state;
     const sold = act(bought, { type: 'sell', id, qty: 1 }).state;
     assert.equal(sold.coins, s.coins - item.price + sellPrice(id));
