@@ -140,6 +140,7 @@ export function createCatalog(
                     ? 2
                     : 1;
     const item: ItemDef = {
+      family: families[family],
       name: `${ranks[Math.floor((level - 1) / 10)]} ${districts[(level - 1) % 10]} ${profiles[variant]} ${families[family]}`,
       icon: icons[family],
       level,

@@ -1,3 +1,4 @@
+import { routeSpawn } from './route-layouts.ts';
 import { fieldGame as newGame } from './test-fixtures.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -122,6 +123,7 @@ test('enemy identities select distinct outfits consistently across encounters an
   for (const r of [0, 2, 3, 4, 5]) {
     const s = newGame();
     s.region = r;
+    Object.assign(s, routeSpawn(r));
     s.visited.push(r);
     for (const e of entities(s).filter((e) => e.kind === 'enemy')) {
       const look = enemyLook(e.id, r);

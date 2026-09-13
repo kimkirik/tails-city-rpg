@@ -145,7 +145,3 @@ export const REGIONS: Region[] = [
 ];
 export const isTown = (region: number) => REGIONS[region]?.town === true;
 export const CAMPAIGN_REGIONS = [0, 6, 2, 3, 4];
-export const roadY = (region: number) =>
-  (({ 7: 1016, 8: 1000, 9: 930, 10: 1005, 11: 990 }) as Record<number, number>)[
-    region
-  ] ?? 970;

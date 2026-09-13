@@ -5,12 +5,15 @@ import {
   REGIONS,
   isTown,
   gatePoints,
+  gateAt,
   walkable,
   entities,
   bagRoom,
   type GameState,
   type Action,
 } from '@/lib/game/model';
+import { mapAsset } from '@/lib/game/maps';
+import { nearestRoutePoint } from '@/lib/game/route-layouts';
 import { findPath } from '@/lib/game/navigation';
 import { KeyboardMovement } from '@/lib/game/keyboard';
 import { DOG_WALK_SHEETS } from '@/lib/game/dog-art';
@@ -51,7 +54,7 @@ export default function World({
     const c = el.getContext('2d')!;
     const maps = REGIONS.map((region) => {
         const image = new Image();
-        image.src = `/art/regions/${region.id}.png`;
+        image.src = mapAsset(region.id);
         return image;
       }),
       sprites = new Image(),
@@ -288,6 +291,11 @@ export default function World({
           v.petX += (s.x - v.petX) * (1 - 53 / pd) * follow;
           v.petY += (s.y - v.petY) * (1 - 53 / pd) * follow;
         }
+        if (s.place === 'field' && !walkable(v.petX, v.petY, s.region)) {
+          const p = nearestRoutePoint(v.petX, v.petY, s.region);
+          v.petX = p.x;
+          v.petY = p.y;
+        }
         v.petMotion = advanceMotion(
           v.petMotion,
           v.petX - oldPetX,
@@ -301,20 +309,20 @@ export default function World({
           v.secondPetX += (v.petX - secondX) * (1 - 56 / sd) * follow;
           v.secondPetY += (v.petY - secondY) * (1 - 56 / sd) * follow;
         }
+        if (
+          s.place === 'field' &&
+          !walkable(v.secondPetX, v.secondPetY, s.region)
+        ) {
+          const p = nearestRoutePoint(v.secondPetX, v.secondPetY, s.region);
+          v.secondPetX = p.x;
+          v.secondPetY = p.y;
+        }
         v.secondMotion = advanceMotion(
           v.secondMotion,
           v.secondPetX - secondX,
           v.secondPetY - secondY,
         );
-        const edge = (s.region === 5 ? s.y < 850 : s.y < 62)
-          ? 0
-          : s.x > SIZE - 62
-            ? 1
-            : s.y > SIZE - 62
-              ? 2
-              : s.x < 62
-                ? 3
-                : -1;
+        const edge = gateAt(s.x, s.y, s.region);
         if (s.place === 'field' && edge >= 0) {
           const nr = REGIONS[s.region].neighbors[edge];
           if (nr >= 0)

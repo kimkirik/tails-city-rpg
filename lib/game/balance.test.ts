@@ -1,3 +1,4 @@
+import { routeSpawn } from './route-layouts.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -95,8 +96,7 @@ test('earned supplies and equipment can clear all eight raids without excessive 
   for (const region of [0, 6, 2, 3, 4, 5, 8, 10]) {
     s.region = 1;
     s.place = 'field';
-    s.x = 1024;
-    s.y = 1190;
+    Object.assign(s, routeSpawn(1));
     if (!s.visited.includes(region)) s.visited.push(region);
     interact('armory-1');
     s.x = 1024;

@@ -1,3 +1,4 @@
+import { routeSpawn } from './route-layouts.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -19,7 +20,7 @@ function shop(shopType: GameState['shopType'] = 'convenience') {
     shopType,
     x: 1024,
     y: 850,
-    outside: { x: 840, y: 970 },
+    outside: routeSpawn(1),
   });
   return s;
 }

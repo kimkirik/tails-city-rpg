@@ -36,7 +36,6 @@ import {
   xpNeeded,
   MAX_LEVEL,
   questProgress,
-  closedGates,
   gatePoints,
   partyDogs,
   entities,
@@ -44,7 +43,8 @@ import {
   type Action,
 } from '@/lib/game/model';
 import TravelerPreview from './traveler-preview';
-import { MAP_FRAMES } from '@/lib/game/maps';
+import { routeLayout } from '@/lib/game/route-layouts';
+import { MAP_FRAMES, mapAsset } from '@/lib/game/maps';
 export type AdventureMessage = {
   id: string;
   text: string;
@@ -290,11 +290,16 @@ export default function AdventureHUD({
                       : '전투 지역'}
                 </span>
               </div>
+              {!indoors && !cave && (
+                <p className="route-caption">
+                  {routeLayout(state.region).name} · 표식을 누르면 길 안내
+                </p>
+              )}
               <div
                 className="layer-minimap"
                 aria-label={`${region.name} 미니맵. 주민과 상점 표식을 누르면 길을 안내합니다.`}
                 style={{
-                  backgroundImage: `url(${indoors ? '/art/shop-interior.png' : cave ? '/art/raids/cave-map.png' : `/art/regions/${state.region}.png`})`,
+                  backgroundImage: `url(${indoors ? '/art/shop-interior.png' : cave ? '/art/raids/cave-map.png' : mapAsset(state.region)})`,
                   backgroundSize: `${(1254 / fw) * 100}% ${(1254 / fh) * 100}%`,
                 }}
               >
@@ -333,20 +338,6 @@ export default function AdventureHUD({
                             ? '◆'
                             : ''}
                     </button>
-                  ))}
-                {!indoors &&
-                  !cave &&
-                  closedGates(state.region).map((g) => (
-                    <b
-                      key={g.index}
-                      className="minimap-blocked"
-                      style={{
-                        left: `${(g.x / SIZE) * 100}%`,
-                        top: `${(g.y / SIZE) * 100}%`,
-                      }}
-                    >
-                      ×
-                    </b>
                   ))}
                 {!indoors &&
                   !cave &&

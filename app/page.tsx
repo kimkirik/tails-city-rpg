@@ -1,4 +1,5 @@
 'use client';
+import { mapAsset } from '@/lib/game/maps';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   PawPrint,
@@ -751,7 +752,7 @@ export default function Home() {
                     <div
                       className="region-art"
                       style={{
-                        backgroundImage: `url(/art/regions/${r.id}.png)`,
+                        backgroundImage: `url(${mapAsset(r.id)})`,
                         backgroundPosition: 'center',
                       }}
                     />
@@ -1000,9 +1001,9 @@ export default function Home() {
                   터치하면 밖으로 나갑니다.
                 </p>
                 <p>
-                  네 마을에는 상점과 주민만 있어요. 여덟 전투 지역에서 몹을 쓰러뜨리면
-                  전리품이 쏟아집니다. 가까이 가면 자동으로 줍고, 가방이 가득
-                  차면 남은 아이템은 바닥에 보관됩니다.
+                  네 마을에는 상점과 주민만 있어요. 여덟 전투 지역에서 몹을
+                  쓰러뜨리면 전리품이 쏟아집니다. 가까이 가면 자동으로 줍고,
+                  가방이 가득 차면 남은 아이템은 바닥에 보관됩니다.
                 </p>
                 <p>
                   기본은 선택한 한 명의 단독 공격입니다. 행동할 캐릭터 선택은

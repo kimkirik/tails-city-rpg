@@ -1,3 +1,4 @@
+import { routeSpawn } from './route-layouts.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -43,6 +44,7 @@ function interact(s: GameState, id: string) {
 function cave(region = 0) {
   let s = newGame();
   s.region = region;
+  Object.assign(s, routeSpawn(region));
   s.visited = [...new Set([0, region])];
   s = interact(s, `raid-entry-${region}`);
   return s;
@@ -58,6 +60,7 @@ test('visible gate topology and collision agree at every boundary and all links 
   for (const region of REGIONS) {
     const s = newGame();
     s.region = region.id;
+    Object.assign(s, routeSpawn(region.id));
     s.visited.push(region.id);
     for (const [edge, point] of gatePoints(region.id).entries()) {
       const neighbor = region.neighbors[edge];
@@ -75,8 +78,7 @@ test('visible gate topology and collision agree at every boundary and all links 
         const result = act(s, { type: 'travel', region: neighbor, gate: true });
         assert.equal(result.state.region, neighbor);
         assert.ok(walkable(result.state.x, result.state.y, neighbor));
-        s.x = 1024;
-        s.y = 1190;
+        Object.assign(s, routeSpawn(region.id));
       }
     }
   }
@@ -87,8 +89,11 @@ test('all field and cave interactions can be reached using the actual touch path
       if (place === 'cave' && !RAIDS[region]) continue;
       const s = place === 'cave' ? cave(region) : newGame();
       s.region = region;
-      s.x = 1024;
-      s.y = place === 'cave' ? 1720 : 1190;
+      Object.assign(s, routeSpawn(region));
+      Object.assign(
+        s,
+        place === 'cave' ? { x: 1024, y: 1720 } : routeSpawn(region),
+      );
       for (const e of entities(s)) approach(s, e.id);
     }
 });

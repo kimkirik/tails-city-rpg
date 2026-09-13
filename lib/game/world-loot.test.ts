@@ -1,3 +1,4 @@
+import { routeSpawn } from './route-layouts.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -157,7 +158,7 @@ test('legacy village raids and shops migrate safely while earned items and boss 
   const s = unpackSave(packSave(old));
   assert.equal(s.region, 6);
   assert.equal(s.place, 'cave');
-  assert.equal(s.worldRevision, 2);
+  assert.equal(s.worldRevision, 3);
   assert.deepEqual(s.raids, [6]);
   assert.deepEqual(s.rescued, [6]);
   assert.deepEqual(s.caveCleared, ['cave-6-0']);
@@ -197,8 +198,7 @@ test('new region companions, towns, cave progress and NPC conversations round-tr
       s.y = e.y;
       s = act(s, { type: 'interact', id: e.id }).state;
     }
-    s.x = 1024;
-    s.y = 1280;
+    Object.assign(s, routeSpawn(region.id));
     assert.deepEqual(unpackSave(packSave(s)), s);
     const invalid = JSON.parse(packSave(s));
     invalid.state.region = 12;

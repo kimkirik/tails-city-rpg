@@ -1,6 +1,11 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
+import {
+  groupProducts,
+  defaultProduct,
+  type ProductGroup,
+} from '@/lib/game/shop-catalog';
 import { ITEM_ENTRIES } from '@/lib/game/content';
 import { RARITIES, ITEM_SOURCES } from '@/lib/game/item-catalog';
 import {
@@ -29,6 +34,7 @@ import {
   heroStats,
   questProgress,
   countItem,
+  bagRoom,
   sellPrice,
   actorName,
   partyDogs,
@@ -267,7 +273,8 @@ export function Shop({ state: s, onAction }: Props) {
       ),
     [s.shopType, s.hero.level, scope, search, armory, category, mode],
   );
-  const pages = Math.max(1, Math.ceil(items.length / 12)),
+  const groups = useMemo(() => groupProducts(items), [items]);
+  const pages = Math.max(1, Math.ceil(groups.length / 12)),
     safePage = Math.min(page, pages - 1);
   return (
     <>
@@ -343,80 +350,24 @@ export function Shop({ state: s, onAction }: Props) {
         {armory
           ? `공격 ${stats.attack} / 방어 ${stats.defense} / 매력 ${stats.charm}`
           : `가방 ${s.bag.filter(Boolean).length} / ${s.capacity}칸`}
+        {mode !== 'sell' && ` · ${groups.length}종류`}
       </div>
       {mode === 'sell' ? (
         <SellItems state={s} onAction={onAction} />
       ) : (
         <div className="shop-items">
-          {items.slice(safePage * 12, safePage * 12 + 12).map(([id, item]) => {
-            const owned = item.capacity
-              ? s.capacity >= item.capacity
-              : !!item.slot && countItem(s, id) > 0;
-            const current = item.slot
-              ? item.slot === 'weapon'
-                ? s.weapon
-                : s.equipment[item.slot]
-              : null;
-            const before = current ? ITEMS[current] : null;
-            return (
-              <div className="shop-item" key={id}>
-                <span>{item.icon}</span>
-                <div>
-                  <h3>{item.name}</h3>
-                  <ItemLevel item={item} />
-                  <p>{item.desc}</p>
-                  {mode === 'loot' && (
-                    <p className="loot-acquisition">
-                      {item.source === 'raid'
-                        ? '동굴 수문장·드래곤'
-                        : '전투 지역 몬스터'}
-                      <br />
-                      무작위 획득 · 상점 판매 안 함
-                    </p>
-                  )}
-                  {item.slot ? (
-                    <small>
-                      {current ? `현재: ${before!.name}` : '현재: 미착용'}
-                      {item.attack
-                        ? ` · 공격 변화 ${item.attack - (before?.attack ?? 0) >= 0 ? '+' : ''}${item.attack - (before?.attack ?? 0)}`
-                        : ''}
-                    </small>
-                  ) : (
-                    <small>
-                      {item.capacity
-                        ? `현재 ${s.capacity}칸 → ${Math.max(s.capacity, item.capacity)}칸`
-                        : `보유 ${countItem(s, id)}개`}
-                    </small>
-                  )}
-                </div>
-                {mode !== 'loot' && (
-                  <button
-                    className="primary-button"
-                    disabled={
-                      owned || s.coins < item.price || s.hero.level < item.level
-                    }
-                    onClick={() => onAction({ type: 'buy', id })}
-                  >
-                    ◈ {item.price.toLocaleString()}
-                    <small>
-                      {s.hero.level < item.level
-                        ? `Lv.${item.level} 필요`
-                        : owned
-                          ? '보유 중'
-                          : item.capacity
-                            ? '구입 · 확장'
-                            : item.slot
-                              ? '구입 · 장착'
-                              : '1개 구입'}
-                    </small>
-                  </button>
-                )}
-              </div>
-            );
-          })}
+          {groups.slice(safePage * 12, safePage * 12 + 12).map((group) => (
+            <ShopProduct
+              key={group.key}
+              group={group}
+              state={s}
+              onAction={onAction}
+              loot={mode === 'loot'}
+            />
+          ))}
         </div>
       )}
-      {mode !== 'sell' && (
+      {mode !== 'sell' && pages > 1 && (
         <div className="bag-pagination catalog-pagination">
           <button
             aria-label="이전 상품 페이지"
@@ -432,7 +383,8 @@ export function Shop({ state: s, onAction }: Props) {
             <ChevronLeft size={18} />
           </button>
           <span>
-            {items.length.toLocaleString()}종 · {safePage + 1} / {pages} 페이지
+            {groups.length.toLocaleString()}종류 · {safePage + 1} / {pages}{' '}
+            페이지
           </span>
           <button
             aria-label="다음 상품 페이지"
@@ -459,9 +411,189 @@ export function Shop({ state: s, onAction }: Props) {
           ? '두 상점 모두 아이템을 구매가의 50%에 매입합니다(소수점 버림). 확장한 가방은 판매되지 않아요.'
           : mode === 'loot'
             ? '추가 전리품 확률: 일반 몬스터 18% · 대장 45%. 레이드 전용: 수문장 10% · 드래곤 80%. 내 레벨과 적 레벨 이하 아이템 중 무작위 1종. 회복 물품은 별도 지급.'
-            : '상점은 기본 보급품과 일반 장비를 판매해요. 희귀 장비·강화제는 전리품 도감에서 획득처를 확인하세요.'}
+            : '종류마다 한 카드로 모았어요. 레벨·등급을 고르고 원하는 수량만큼 구입하세요. 가방은 1회 확장 상품이에요.'}
       </p>
     </>
+  );
+}
+function ShopProduct({
+  group,
+  state: s,
+  onAction,
+  loot,
+}: Props & { group: ProductGroup; loot: boolean }) {
+  const [selected, setSelected] = useState<string | null>(null),
+    [quantity, setQuantity] = useState('1');
+  const [id, item] =
+    group.entries.find(([key]) => key === selected) ??
+    defaultProduct(group, s.hero.level, s.capacity);
+  const levels = [...new Set(group.entries.map(([, i]) => i.level))].sort(
+    (a, b) => a - b,
+  );
+  const variants = group.entries
+    .filter(([, i]) => i.level === item.level)
+    .sort((a, b) => a[1].price - b[1].price);
+  const max = item.capacity
+    ? s.capacity < item.capacity && s.coins >= item.price
+      ? 1
+      : 0
+    : Math.min(999, bagRoom(s, id), Math.floor(s.coins / item.price));
+  const qty = item.capacity ? 1 : Number(quantity),
+    valid =
+      Number.isInteger(qty) &&
+      qty > 0 &&
+      qty <= max &&
+      s.hero.level >= item.level;
+  const total = Number.isFinite(qty) && qty > 0 ? item.price * qty : 0;
+  const current =
+    item.slot === 'weapon'
+      ? s.weapon
+      : item.slot
+        ? s.equipment[item.slot]
+        : null;
+  const before = current ? ITEMS[current] : null;
+  return (
+    <article className="shop-item grouped-product" data-product={group.key}>
+      <span aria-hidden="true">{item.icon}</span>
+      <div className="product-description">
+        <h3>{group.name}</h3>
+        {item.family && <small className="selected-variant">{item.name}</small>}
+        <ItemLevel item={item} />
+        <p>{item.desc}</p>
+        <small>
+          {item.capacity
+            ? `현재 ${s.capacity}칸 → ${Math.max(s.capacity, item.capacity)}칸`
+            : `보유 ${countItem(s, id)}개 · 개당 ◈ ${item.price.toLocaleString()}`}
+        </small>
+        {item.slot && (
+          <small>
+            {current === id
+              ? '현재 장착 중'
+              : `장착 시 공격 변화 ${(item.attack ?? 0) - (before?.attack ?? 0) >= 0 ? '+' : ''}${(item.attack ?? 0) - (before?.attack ?? 0)}`}
+          </small>
+        )}
+        {group.entries.length > 1 && (
+          <details className="product-options">
+            <summary>
+              {item.capacity ? '가방 크기 선택' : '다른 레벨·등급 선택'}
+            </summary>
+            {item.family && <p className="selected-variant">{item.name}</p>}
+            {levels.length > 1 && (
+              <label>
+                레벨
+                <select
+                  aria-label={`${group.name} 상품 레벨`}
+                  value={item.level}
+                  onChange={(e) => {
+                    const next = group.entries
+                      .filter(([, i]) => i.level === Number(e.target.value))
+                      .sort((a, b) => a[1].price - b[1].price)[0];
+                    setSelected(next[0]);
+                    setQuantity('1');
+                  }}
+                >
+                  {levels.map((level) => (
+                    <option value={level} key={level}>
+                      Lv.{level}
+                      {level > s.hero.level ? ' · 잠김' : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <label>
+              {item.capacity ? '크기' : '등급'}
+              <select
+                aria-label={`${group.name} 상품 선택`}
+                value={id}
+                onChange={(e) => {
+                  setSelected(e.target.value);
+                  setQuantity('1');
+                }}
+              >
+                {variants.map(([key, option]) => (
+                  <option key={key} value={key}>
+                    {option.capacity
+                      ? `${option.capacity}칸`
+                      : `${RARITIES[option.rarity]} · ${option.name}`}{' '}
+                    · ◈ {option.price.toLocaleString()}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </details>
+        )}
+        {loot && (
+          <p className="loot-acquisition">
+            {item.source === 'raid' ? '동굴 수문장·드래곤' : '전투 지역 몬스터'}{' '}
+            · 무작위 획득
+            <br />
+            상점에서는 판매하지 않아요.
+          </p>
+        )}
+      </div>
+      {!loot && (
+        <div className="buy-controls">
+          {!item.capacity && (
+            <div className="buy-quantity">
+              <button
+                aria-label={`${group.name} 수량 줄이기`}
+                disabled={qty <= 1 || !Number.isFinite(qty)}
+                onClick={() => setQuantity(String(Math.max(1, qty - 1)))}
+              >
+                −
+              </button>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={999}
+                step={1}
+                aria-label={`${group.name} 구매 수량`}
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+              />
+              <button
+                aria-label={`${group.name} 수량 늘리기`}
+                disabled={qty >= max || !Number.isFinite(qty)}
+                onClick={() => setQuantity(String(Math.min(max, qty + 1)))}
+              >
+                +
+              </button>
+            </div>
+          )}
+          {!item.capacity && (
+            <button
+              className="buy-max"
+              disabled={max < 1}
+              onClick={() => setQuantity(String(max))}
+            >
+              최대 {max}개
+            </button>
+          )}
+          <button
+            className="primary-button"
+            aria-label={`${group.name} ${qty || 0}개 구매`}
+            disabled={!valid}
+            onClick={() => {
+              const result = onAction({ type: 'buy', id, qty });
+              if (result.state !== s) setQuantity('1');
+            }}
+          >
+            <span>◈ {total.toLocaleString()}</span>
+            <small>
+              {s.hero.level < item.level
+                ? `Lv.${item.level} 필요`
+                : item.capacity
+                  ? s.capacity >= item.capacity
+                    ? '확장 완료'
+                    : '구입 · 확장'
+                  : `${qty || 0}개 구입`}
+            </small>
+          </button>
+        </div>
+      )}
+    </article>
   );
 }
 function SellItems({ state: s, onAction }: Props) {
@@ -643,6 +775,26 @@ function QuestCard({
     </article>
   );
 }
+function PastQuests({
+  quests,
+  state: s,
+  onAction,
+}: Props & { quests: typeof QUESTS }) {
+  const completed = quests.filter((q) => s.quests[q.id] === 'claimed');
+  if (!completed.length) return null;
+  return (
+    <details className="past-quests">
+      <summary>
+        지난 퀘스트 <span>{completed.length}개 완료</span>
+      </summary>
+      <div>
+        {completed.map((q) => (
+          <QuestCard key={q.id} id={q.id} state={s} onAction={onAction} />
+        ))}
+      </div>
+    </details>
+  );
+}
 export function NpcConversation({ state: s, onAction }: Props) {
   const npc = NPCS.find((n) => n.id === s.npc);
   if (!npc) return null;
@@ -664,9 +816,17 @@ export function NpcConversation({ state: s, onAction }: Props) {
           <p>{npc.line}</p>
         </div>
       </div>
-      {QUESTS.filter((q) => q.npc === npc.id).map((q) => (
+      {QUESTS.filter(
+        (q) => q.npc === npc.id && s.quests[q.id] !== 'claimed',
+      ).map((q) => (
         <QuestCard key={q.id} id={q.id} state={s} onAction={onAction} atNpc />
       ))}
+      <PastQuests
+        key={npc.id}
+        quests={QUESTS.filter((q) => q.npc === npc.id)}
+        state={s}
+        onAction={onAction}
+      />
     </div>
   );
 }
@@ -681,7 +841,7 @@ export function QuestJournal({
         <span>THE SIGNAL COLLARS</span>
         <h3>사라진 목줄의 비밀</h3>
         <p>
-          검은 목줄단이 도시의 동물과 여섯 용을 붙잡았습니다. 마을 주민에게
+          검은 목줄단이 도시의 동물과 여덟 용을 붙잡았습니다. 마을 주민에게
           단서를 모으고 도난 물자를 되찾아, 동굴의 봉인을 풀어 주세요.
         </p>
         <button
@@ -719,11 +879,22 @@ export function QuestJournal({
           해방한 드래곤
         </span>
       </div>
+      <PastQuests quests={QUESTS} state={s} onAction={onAction} />
+      {QUESTS.some((q) => s.quests[q.id] === 'active') && (
+        <section className="active-quests">
+          <h3>진행 중인 퀘스트</h3>
+          {QUESTS.filter((q) => s.quests[q.id] === 'active').map((q) => (
+            <QuestCard key={q.id} id={q.id} state={s} onAction={onAction} />
+          ))}
+        </section>
+      )}
       <h3>마을의 부탁</h3>
       <p>의뢰 수락과 보상 수령은 연두 마을 주민에게 직접 말을 걸어 주세요.</p>
-      {QUESTS.filter((q) => !q.id.startsWith('raid-')).map((q) => (
-        <QuestCard key={q.id} id={q.id} state={s} onAction={onAction} />
-      ))}
+      {QUESTS.filter((q) => !q.id.startsWith('raid-') && !s.quests[q.id]).map(
+        (q) => (
+          <QuestCard key={q.id} id={q.id} state={s} onAction={onAction} />
+        ),
+      )}
       <h3>여덟 용의 신호</h3>
       {RAID_LIST.map((raid) => (
         <div className="raid-journal" key={raid.name}>
@@ -746,9 +917,11 @@ export function QuestJournal({
           </div>
         </div>
       ))}
-      {QUESTS.filter((q) => q.id.startsWith('raid-')).map((q) => (
-        <QuestCard key={q.id} id={q.id} state={s} onAction={onAction} />
-      ))}
+      {QUESTS.filter((q) => q.id.startsWith('raid-') && !s.quests[q.id]).map(
+        (q) => (
+          <QuestCard key={q.id} id={q.id} state={s} onAction={onAction} />
+        ),
+      )}
       {s.raids.length === RAID_LIST.length && (
         <div className="ending">
           <h3>여덟 용이 자유를 되찾았어요.</h3>

@@ -5,8 +5,14 @@ import {
 } from './appearance.ts';
 import { enemyLook, ENEMY_LOOKS } from './enemies.ts';
 export const SIZE = 2048;
-import { REGIONS, isTown, roadY, CAMPAIGN_REGIONS } from './regions.ts';
-export { REGIONS, isTown, roadY, CAMPAIGN_REGIONS };
+import { REGIONS, isTown, CAMPAIGN_REGIONS } from './regions.ts';
+import {
+  onRoute,
+  routeLayout,
+  routeSpawn,
+  nearestRoutePoint,
+} from './route-layouts.ts';
+export { REGIONS, isTown, CAMPAIGN_REGIONS };
 export const BREEDS = [
   {
     name: '시바',
@@ -145,7 +151,7 @@ export type Hero = {
   poison: boolean;
 };
 export type GameState = {
-  worldRevision?: 2;
+  worldRevision?: 2 | 3;
   version: 1;
   region: number;
   x: number;
@@ -233,10 +239,9 @@ export function makeDog(
 export function newGame(): GameState {
   return {
     version: 1,
-    worldRevision: 2,
+    worldRevision: 3,
     region: 1,
-    x: 1024,
-    y: 1280,
+    ...routeSpawn(1),
     coins: 320,
     capacity: 25,
     bag: [
@@ -423,22 +428,30 @@ function takeItem(s: GameState, id: string, qty = 1) {
   }
   return true;
 }
-export function gatePoints(region: number) {
+export function gatePoints(_region: number) {
   return [
-    { x: 1024, y: region === 5 ? 850 : 60 },
-    { x: 1988, y: roadY(region) },
+    { x: 1024, y: 60 },
+    { x: 1988, y: 970 },
     { x: 1024, y: 1988 },
-    { x: 60, y: roadY(region) },
+    { x: 60, y: 970 },
   ];
+}
+export function gateAt(x: number, y: number, region: number) {
+  return gatePoints(region).findIndex(
+    (p, i) =>
+      REGIONS[region].neighbors[i] >= 0 && Math.hypot(x - p.x, y - p.y) <= 52,
+  );
+}
+export function gateArrival(region: number, edge: number) {
+  const p = gatePoints(region)[edge];
+  return {
+    x: p.x + (edge === 3 ? 100 : edge === 1 ? -100 : 0),
+    y: p.y + (edge === 0 ? 100 : edge === 2 ? -100 : 0),
+  };
 }
 export function closedGates(region: number) {
   return gatePoints(region)
-    .map((p, i) => ({
-      ...p,
-      index: i,
-      x: i === 1 ? 1872 : i === 3 ? 176 : p.x,
-      y: i === 0 ? 176 : i === 2 ? 1872 : p.y,
-    }))
+    .map((p, index) => ({ ...p, index }))
     .filter((p) => REGIONS[region].neighbors[p.index] < 0);
 }
 export function walkable(
@@ -464,29 +477,7 @@ export function walkable(
       ((x - 1670) / 195) ** 2 + ((y - 1030) / 155) ** 2 <= 1 ||
       (x >= 965 && x <= 1100 && y >= 1190 && y <= 1830)
     );
-  const bounds =
-    (region !== 5 || y >= 830) &&
-    x >= 24 &&
-    x <= SIZE - 24 &&
-    y >= 24 &&
-    y <= SIZE - 24;
-  const road =
-    Math.abs(x - 1024) < 87 ||
-    Math.abs(y - roadY(region)) < (region >= 6 ? 65 : 73);
-  const plaza = region === 0 && x > 860 && x < 1190 && y > 785 && y < 1125;
-  const fountain = region === 0 && Math.hypot(x - 1024, y - 935) < 115;
-  const connected =
-    region < 0 ||
-    closedGates(region).every((p) =>
-      p.index === 0
-        ? y >= p.y + 22
-        : p.index === 1
-          ? x <= p.x - 22
-          : p.index === 2
-            ? y <= p.y - 22
-            : x >= p.x + 22,
-    );
-  return bounds && connected && (road || plaza) && !fountain;
+  return onRoute(x, y, region);
 }
 export function entities(s: GameState): Entity[] {
   const r = s.region;
@@ -689,9 +680,40 @@ export function entities(s: GameState): Entity[] {
       : []),
   ];
   return list
-    .map((e) =>
-      e.y === 970 || e.y === 1000 ? { ...e, y: e.y + roadY(r) - 970 } : e,
-    )
+    .map((e) => {
+      const key =
+        e.kind === 'npc'
+          ? `npc${NPCS.filter((n) => n.region === r).findIndex((n) => n.id === e.npc)}`
+          : e.id === `dog-${r}`
+            ? 'dog'
+            : e.id === `dog-${r}-b`
+              ? 'dog-b'
+              : e.id === `enemy-${r}-0`
+                ? 'enemy0'
+                : e.id === `enemy-${r}-1`
+                  ? 'enemy1'
+                  : e.id === `captain-${r}`
+                    ? 'captain'
+                    : e.id === `shop-${r}`
+                      ? 'shop'
+                      : e.id === `armory-${r}`
+                        ? 'armory'
+                        : e.id === `rest-${r}`
+                          ? 'rest'
+                          : e.id === `raid-entry-${r}`
+                            ? 'cave'
+                            : e.id === `loot-${r}`
+                              ? 'loot'
+                              : e.id === `loot-${r}-b`
+                                ? 'loot-b'
+                                : e.id === `mob-${r}-0`
+                                  ? 'mob0'
+                                  : e.id === `mob-${r}-1`
+                                    ? 'mob1'
+                                    : undefined;
+      const p = key ? routeLayout(r).anchors[key] : undefined;
+      return p ? { ...e, x: p[0], y: p[1] } : e;
+    })
     .map((e) =>
       e.kind === 'enemy'
         ? {
@@ -784,7 +806,8 @@ export function combatHits(s: GameState, kind: AttackKind): CombatHit[] {
 export type Action =
   | { type: 'interact'; id: string }
   | { type: AttackKind | 'flee' | 'expand' | 'pickup' }
-  | { type: 'item' | 'buy'; id: string; target?: string }
+  | { type: 'item'; id: string; target?: string }
+  | { type: 'buy'; id: string; qty?: number }
   | { type: 'sell'; id: string; qty: number }
   | { type: 'switch' | 'party' | 'actor' | 'quest'; id: string }
   | { type: 'rename'; name: string }
@@ -1124,6 +1147,9 @@ export function act(source: GameState, a: Action): Result {
     };
   }
   if (a.type === 'buy') {
+    const qty = a.qty ?? 1;
+    if (!Number.isInteger(qty) || qty < 1 || qty > 999)
+      return fail('구입 수량은 1~999개 사이의 정수로 입력하세요.');
     const item = ITEMS[a.id];
     if (!item) return fail('알 수 없는 아이템이에요.');
     if (
@@ -1145,26 +1171,28 @@ export function act(source: GameState, a: Action): Result {
           ? '무기상에서 판매하는 장비예요.'
           : '편의점에서 판매하는 물건이에요.',
       );
-    if (item.slot && countItem(s, a.id) > 0)
-      return fail('이미 보유한 장비예요.');
     if (item.capacity && s.capacity >= item.capacity)
       return fail('현재 가방이 같거나 더 큽니다.');
     if (s.hero.level < item.level)
       return fail(
         `여행자 Lv.${item.level}에 구입할 수 있어요. 현재 Lv.${s.hero.level}`,
       );
-    if (s.coins < item.price) return fail('코인이 부족해요.');
+    if (item.capacity && qty !== 1)
+      return fail('가방 확장은 한 번에 하나씩 구입하세요.');
+    const total = item.price * qty;
+    if (s.coins < total) return fail('코인이 부족해요.');
     if (item.capacity) {
       s.bag.push(...Array(item.capacity - s.capacity).fill(null));
       s.capacity = item.capacity;
-    } else if (!putItem(s, a.id)) return fail('가방이 가득 찼어요.');
-    s.coins -= item.price;
+    } else if (!putItem(s, a.id, qty))
+      return fail('선택한 수량을 담을 가방 공간이 부족해요.');
+    s.coins -= total;
     if (item.slot) equip(s, a.id, item.slot);
     return {
       state: s,
       message: item.capacity
         ? `${item.name} 구입! 기존 아이템을 그대로 보관하고 ${s.capacity}칸으로 확장했어요.`
-        : `${item.name} 구입${item.slot ? ' · 장착' : ''}!`,
+        : `${item.name} ${qty}개 구입${item.slot ? ' · 1개 장착' : ''}! −${total.toLocaleString()} 코인`,
     };
   }
   if (a.type === 'item') {
@@ -1338,27 +1366,16 @@ export function act(source: GameState, a: Action): Result {
     if (s.place !== 'field') return fail('밖으로 나온 뒤 이동하세요.');
     if (!REGIONS[a.region]) return fail('존재하지 않는 지역이에요.');
     if (a.gate) {
-      const edge = (s.region === 5 ? s.y < 860 : s.y < 80)
-        ? 0
-        : s.x > SIZE - 80
-          ? 1
-          : s.y > SIZE - 80
-            ? 2
-            : s.x < 80
-              ? 3
-              : -1;
+      const edge = gateAt(s.x, s.y, s.region);
       if (edge < 0 || REGIONS[s.region].neighbors[edge] !== a.region)
         return fail('연결된 출구 가까이로 이동하세요.');
-      s.x = edge === 1 ? 90 : edge === 3 ? SIZE - 90 : 1024;
-      s.y = edge === 2 ? 90 : edge === 0 ? SIZE - 90 : roadY(a.region);
+      Object.assign(s, gateArrival(a.region, (edge + 2) % 4));
     } else {
       if (!s.visited.includes(a.region))
         return fail('먼저 연결된 길로 이 지역을 발견하세요.');
-      s.x = 1024;
-      s.y = 1190;
+      Object.assign(s, routeSpawn(a.region));
     }
     s.region = a.region;
-    if (s.region === 5 && s.y < 860) s.y = 900;
     if (!s.visited.includes(a.region)) s.visited.push(a.region);
     s.encounterGraceUntil = s.seconds + 4;
     message = `${REGIONS[a.region].name} · ${isTown(a.region) ? '안전한 마을 — 상점과 주민은 미니맵에서 찾아요.' : '전투 지역 — 몬스터와 레이드 동굴이 있어요.'}`;
@@ -1374,8 +1391,7 @@ export function act(source: GameState, a: Action): Result {
       s.place = 'field';
       delete s.outside;
       s.region = 1;
-      s.x = 1024;
-      s.y = 1350;
+      Object.assign(s, routeSpawn(1));
       if (!s.visited.includes(1)) s.visited.push(1);
       s.encounterGraceUntil = s.seconds + 5;
       s.coins = Math.floor(s.coins * 0.95);
@@ -1671,7 +1687,9 @@ export function unpackSave(text: string): GameState {
     p.game !== 'tails-city' ||
     !s ||
     s.version !== 1 ||
-    (s.worldRevision !== undefined && s.worldRevision !== 2) ||
+    (s.worldRevision !== undefined &&
+      s.worldRevision !== 2 &&
+      s.worldRevision !== 3) ||
     !int(s.region, 0, REGIONS.length - 1) ||
     !Number.isFinite(s.x) ||
     !Number.isFinite(s.y) ||
@@ -1729,7 +1747,7 @@ export function unpackSave(text: string): GameState {
   )
     bad();
   // Move the former village cave without discarding legacy progress or equipment.
-  if (s.worldRevision !== 2) {
+  if (s.worldRevision === undefined) {
     const relocate = (id: string) =>
       id
         .replace(/^(cave|dragon|cat|raid)-1(?=-|$)/, '$1-6')
@@ -1777,6 +1795,7 @@ export function unpackSave(text: string): GameState {
     bad();
   const defaults = newGame(),
     legacy = s.hero === undefined,
+    oldRoutes = s.worldRevision !== 3,
     place = s.place ?? 'field',
     appearance = s.appearance ?? defaultAppearance(),
     playerName = s.playerName ?? '여행자',
@@ -1916,7 +1935,9 @@ export function unpackSave(text: string): GameState {
         d.x <= 2024 &&
         d.y >= 24 &&
         d.y <= 2024 &&
-        (legacy || walkable(d.x, d.y, d.region, d.place ?? 'field')) &&
+        (legacy ||
+          (oldRoutes && (d.place ?? 'field') === 'field') ||
+          walkable(d.x, d.y, d.region, d.place ?? 'field')) &&
         Number.isFinite(d.originX) &&
         Number.isFinite(d.originY) &&
         d.originX >= 0 &&
@@ -1926,28 +1947,39 @@ export function unpackSave(text: string): GameState {
     )
   )
     bad();
-  if (
-    place !== 'field' &&
-    (!s.outside ||
+  if (place !== 'field') {
+    if (
+      !s.outside ||
       !Number.isFinite(s.outside.x) ||
       !Number.isFinite(s.outside.y) ||
-      !walkable(s.outside.x, s.outside.y, s.region))
-  )
-    bad();
-  if (!walkable(s.x, s.y, s.region, place)) {
-    if (!legacy) bad();
-    s.x = 1024;
-    s.y = 1190;
+      s.outside.x < 24 ||
+      s.outside.x > 2024 ||
+      s.outside.y < 24 ||
+      s.outside.y > 2024
+    )
+      bad();
+    if (oldRoutes && !walkable(s.outside.x, s.outside.y, s.region))
+      s.outside = nearestRoutePoint(s.outside.x, s.outside.y, s.region);
+    if (!walkable(s.outside.x, s.outside.y, s.region)) bad();
   }
-  if (legacy)
-    for (const drop of drops)
-      if (!walkable(drop.x, drop.y, drop.region)) {
-        drop.x = 1024;
-        drop.y = 1190;
-      }
+  if (!walkable(s.x, s.y, s.region, place)) {
+    if (oldRoutes && place === 'field')
+      Object.assign(s, nearestRoutePoint(s.x, s.y, s.region));
+    else if (legacy) Object.assign(s, routeSpawn(s.region));
+    else bad();
+  }
+  for (const drop of drops) {
+    if ((oldRoutes || legacy) && (drop.place ?? 'field') === 'field') {
+      if (!walkable(drop.x, drop.y, drop.region))
+        Object.assign(drop, nearestRoutePoint(drop.x, drop.y, drop.region));
+      const origin = nearestRoutePoint(drop.originX, drop.originY, drop.region);
+      drop.originX = origin.x;
+      drop.originY = origin.y;
+    }
+  }
   const result: GameState = {
     ...s,
-    worldRevision: 2,
+    worldRevision: 3,
     appearance: { ...appearance },
     playerName,
     party,

@@ -1,14 +1,3 @@
-export const MAP_FRAMES = [
-  [1150, 1172],
-  [1254, 1254],
-  [1254, 1254],
-  [1200, 1170],
-  [1254, 1180],
-  [1240, 1212],
-  [1254, 1254],
-  [1254, 1254],
-  [1254, 1254],
-  [1254, 1254],
-  [1254, 1254],
-  [1254, 1254],
-] as const;
+import { REGIONS } from './regions';
+export const MAP_FRAMES = REGIONS.map(() => [1254, 1254] as const);
+export const mapAsset = (region: number) => `/art/routes/${region}.png`;

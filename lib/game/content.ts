@@ -1,6 +1,7 @@
 import { createCatalog } from './item-catalog.ts';
 export type EquipmentSlot = 'weapon' | 'clothes' | 'accessory';
 export type ItemDef = {
+  family?: string;
   source: 'shop' | 'monster' | 'raid';
   level: number;
   rarity: number;

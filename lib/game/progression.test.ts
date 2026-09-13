@@ -1,3 +1,4 @@
+import { routeSpawn } from './route-layouts.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -93,7 +94,7 @@ test('shop locks new higher-level items then unlocks them, and generated gear/fo
     shopType: 'armory',
     x: 1024,
     y: 850,
-    outside: { x: 840, y: 970 },
+    outside: routeSpawn(1),
     coins: 100000,
   });
   const weapon = GENERATED_BY_LEVEL[3].find(([, i]) => i.slot === 'weapon')![0];
@@ -233,10 +234,9 @@ test('long sessions keep all existing ground loot and convert only overflow to c
     id: `drop-0-${i}`,
     region: 0,
     place: 'field' as const,
-    x: 1024,
-    y: 1190,
-    originX: 1024,
-    originY: 1190,
+    ...routeSpawn(0),
+    originX: routeSpawn(0).x,
+    originY: routeSpawn(0).y,
     item: 'berry',
     qty: 1,
     createdAt: 0,
@@ -265,7 +265,7 @@ test('level 20, 60 and 100 cave challenges are winnable with matching gear and m
       shopType: 'armory',
       x: 1024,
       y: 850,
-      outside: { x: 840, y: 970 },
+      outside: routeSpawn(1),
       coins: 1000000,
     });
     for (const slot of ['weapon', 'clothes', 'accessory']) {

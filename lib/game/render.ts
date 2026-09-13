@@ -8,7 +8,6 @@ import {
   WEAPONS,
   RAIDS,
   NPCS,
-  closedGates,
   gatePoints,
   charmNeeded,
   entities,
@@ -198,39 +197,6 @@ export function render(
       SIZE * z,
     );
     c.imageSmoothingEnabled = false;
-  }
-  if (!indoors && !cave) {
-    for (const gate of closedGates(s.region)) {
-      const p = screen(gate.x, gate.y),
-        horizontal = gate.index % 2 === 0;
-      const width = (horizontal ? 184 : 42) * z,
-        height = (horizontal ? 42 : 152) * z;
-      c.save();
-      c.fillStyle = '#28342fee';
-      c.fillRect(p.x - width / 2, p.y - height / 2, width, height);
-      c.strokeStyle = '#f5bf65';
-      c.lineWidth = 5 * z;
-      c.beginPath();
-      for (let i = -100; i < 110; i += 25) {
-        if (horizontal) {
-          c.moveTo(p.x + i * z, p.y - 17 * z);
-          c.lineTo(p.x + (i + 22) * z, p.y + 17 * z);
-        } else {
-          c.moveTo(p.x - 17 * z, p.y + i * z * 0.7);
-          c.lineTo(p.x + 17 * z, p.y + (i + 22) * z * 0.7);
-        }
-      }
-      c.stroke();
-      c.restore();
-      label(
-        c,
-        '통행 불가 · 막힌 길',
-        p.x,
-        p.y - 40 * z,
-        '#ffe9be',
-        '#553c2eea',
-      );
-    }
   }
   if (v.dropSeen.size > 600) {
     const ids = new Set(s.drops.map((d) => d.id));

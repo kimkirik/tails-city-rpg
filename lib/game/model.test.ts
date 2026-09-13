@@ -1,3 +1,4 @@
+import { routeSpawn } from './route-layouts.ts';
 import { fieldGame } from './test-fixtures.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -39,7 +40,7 @@ test('bags expand from25 to1000 at the convenience counter without losing items'
   let s = newGame();
   const original = structuredClone(s.bag);
   s.place = 'shop';
-  s.outside = { x: 1024, y: 1190 };
+  s.outside = routeSpawn(1);
   s.x = 1024;
   s.y = 820;
   s.coins = 100000;
@@ -88,15 +89,14 @@ test('save restores inventory, expansion, companions, location, progression', ()
   s = act(s, { type: 'expand' }).state;
   s.visited.push(1);
   s.region = 1;
-  s.x = 1024;
-  s.y = 1600;
+  Object.assign(s, routeSpawn(1));
   s.defeated.push('enemy-0-0');
   assert.deepEqual(unpackSave(packSave(s)), s);
   s.region = 0;
-  s.x = 1170;
-  s.y = 1070;
+  s.x = 1200;
+  s.y = 1480;
   assert.ok(walkable(s.x, s.y, 0));
-  assert.equal(unpackSave(packSave(s)).x, 1170);
+  assert.equal(unpackSave(packSave(s)).x, 1200);
 });
 test('malformed and oversized saves are rejected', () => {
   assert.throws(() => unpackSave('not json'));
@@ -131,7 +131,7 @@ test('all twelve regions connected; travel only through correct gates or discove
   s.y = 970;
   s = act(s, { type: 'travel', region: 1, gate: true }).state;
   assert.equal(s.region, 1);
-  assert.equal(s.x, 90);
+  assert.equal(s.x, 160);
   assert.equal(act(s, { type: 'travel', region: 0 }).state.region, 0);
   const found = new Set([0]),
     queue = [0];
@@ -147,8 +147,8 @@ test('all twelve regions connected; travel only through correct gates or discove
   s.y = 2000;
   s = act(s, { type: 'travel', region: 5, gate: true }).state;
   assert.equal(s.region, 5);
-  assert.equal(s.y, 900);
-  s.y = 840;
+  assert.equal(s.y, 160);
+  s.y = 60;
   s = act(s, { type: 'travel', region: 2, gate: true }).state;
   assert.equal(s.region, 2);
 });
@@ -305,7 +305,9 @@ test('shop has a walkable interior, counter purchases and an exit to the origina
   assert.equal(s.weapon, 'bat');
   assert.equal(s.coins, 155);
   assert.equal(countItem(s, 'bat'), 1);
-  assert.equal(act(s, { type: 'buy', id: 'bat' }).state, s);
+  s = act(s, { type: 'buy', id: 'bat' }).state;
+  assert.equal(countItem(s, 'bat'), 2);
+  assert.equal(s.coins, 35);
   assert.deepEqual(unpackSave(packSave(s)), s);
   const exit = entities(s).find((e) => e.kind === 'exit')!;
   closeTo(s, exit);
