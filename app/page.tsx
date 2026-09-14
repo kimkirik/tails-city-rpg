@@ -122,7 +122,10 @@ export default function Home() {
     },
     [],
   );
-  const { music, toggleMusic, musicLabel } = useGameMusic(!!state.battle);
+  const { music, toggleMusic, musicLabel } = useGameMusic(
+    !!state.battle,
+    state.place === 'cave' && !showEnding,
+  );
   const addMessage = useCallback(
     (
       text: string,
