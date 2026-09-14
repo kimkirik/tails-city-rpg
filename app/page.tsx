@@ -34,6 +34,7 @@ import {
   MAX_LEVEL,
   packSave,
   unpackSave,
+  campaignComplete,
   type GameState,
   type Action,
   type Result,
@@ -52,6 +53,7 @@ import { BattleDirector, type PlayingClip } from '@/lib/game/battle-motion';
 import Portrait from './portrait';
 import Wardrobe from './wardrobe';
 import InstallGame from './install-game';
+import EndingScene from './ending-scene';
 import { useGameInstall } from './use-game-install';
 type Panel =
   | 'npc'
@@ -105,6 +107,13 @@ export default function Home() {
   }, []);
   const director = useRef(new BattleDirector());
   const [clip, setClip] = useState<PlayingClip | null>(null);
+  const [replayEnding, setReplayEnding] = useState(false);
+  const showEnding =
+    ready &&
+    campaignComplete(state) &&
+    !state.battle &&
+    !clip &&
+    (!state.endingSeen || replayEnding);
   const combatTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   useEffect(
     () => () => {
@@ -185,7 +194,17 @@ export default function Home() {
     (r: Result, animated = false) => {
       const previousTurn = game.current.battle?.turn,
         previousLine = game.current.battle?.log.at(-1);
+      const finishedCampaign =
+        !campaignComplete(game.current) && campaignComplete(r.state);
       write(r.state);
+      if (finishedCampaign) {
+        try {
+          localStorage.setItem('tails-city-auto', packSave(r.state));
+          setSaveStatus('엔딩 달성 자동 저장됨');
+        } catch {
+          setSaveStatus('자동 저장 실패 · 파일 저장 권장');
+        }
+      }
       tell(r.message);
       if (r.state.battle && r.state.battle.turn !== previousTurn) {
         for (const line of r.state.battle.log.slice(-2))
@@ -268,10 +287,20 @@ export default function Home() {
     },
     [commitResult, beep],
   );
+  const closeEnding = () => {
+    const result = dispatch({ type: 'ending-seen' });
+    setReplayEnding(false);
+    try {
+      localStorage.setItem('tails-city-auto', packSave(result.state));
+      setSaveStatus('자동 저장됨');
+    } catch {
+      setSaveStatus('자동 저장 실패 · 파일 저장 권장');
+    }
+  };
   const tick = useCallback(() => setState({ ...game.current }), []);
   const open = useCallback(
     (p: Panel) => {
-      if (director.current.busy) return;
+      if (director.current.busy || showEnding) return;
       if (game.current.battle && p !== 'dogs' && p !== 'bag') {
         tell('전투를 마친 뒤 열 수 있어요.');
         return;
@@ -279,10 +308,10 @@ export default function Home() {
       setPanel(p);
       setOverwrite(null);
     },
-    [tell],
+    [tell, showEnding],
   );
   const transitioning = burst === 'enter_shop' || burst === 'leave_shop';
-  paused.current = !!panel || transitioning;
+  paused.current = !!panel || transitioning || showEnding;
   const region = REGIONS[state.region];
   const near = nearest(state);
   const bagUsed = state.bag.filter(Boolean).length;
@@ -379,6 +408,7 @@ export default function Home() {
   }, [ready]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
+      if (showEnding) return;
       if (
         ['INPUT', 'TEXTAREA', 'SELECT'].includes(
           (e.target as HTMLElement)?.tagName,
@@ -407,7 +437,7 @@ export default function Home() {
     };
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
-  }, [panel, open]);
+  }, [panel, open, showEnding]);
   // A small optional WebMCP surface shares the exact inventory and save actions used by the UI.
   useEffect(() => {
     const context = (
@@ -908,6 +938,10 @@ export default function Home() {
               state={state}
               onAction={dispatch}
               onClose={() => setPanel(null)}
+              onReplayEnding={() => {
+                setPanel(null);
+                setReplayEnding(true);
+              }}
             />
           )}
           {panel === 'npc' && (
@@ -1025,6 +1059,7 @@ export default function Home() {
           )}
         </DialogContent>
       </Dialog>
+      {showEnding && <EndingScene state={state} onClose={closeEnding} />}
       <input
         ref={inputFile}
         type="file"

@@ -149,6 +149,8 @@ test('earned supplies and equipment can clear all eight raids without excessive 
     ),
   );
   assert.equal(s.raids.length, 8);
+  assert.equal(s.won, true);
+  assert.equal(s.endingSeen, false);
   for (const fight of results) {
     assert.ok(
       fight.actions <= (fight.id.startsWith('dragon') ? 18 : 6),

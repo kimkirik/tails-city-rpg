@@ -38,6 +38,7 @@ import {
   sellPrice,
   actorName,
   partyDogs,
+  campaignComplete,
   type GameState,
   type Action,
   type Result,
@@ -834,7 +835,8 @@ export function QuestJournal({
   state: s,
   onAction,
   onClose,
-}: Props & { onClose: () => void }) {
+  onReplayEnding,
+}: Props & { onClose: () => void; onReplayEnding: () => void }) {
   return (
     <div className="journal-content">
       <div className="story-intro">
@@ -844,6 +846,16 @@ export function QuestJournal({
           검은 목줄단이 도시의 동물과 여덟 용을 붙잡았습니다. 마을 주민에게
           단서를 모으고 도난 물자를 되찾아, 동굴의 봉인을 풀어 주세요.
         </p>
+        <p>
+          엔딩 조건: 전투 지역 여덟 곳의 레이드 보스를 모두 이기기. 현재{' '}
+          {RAID_LIST.filter((raid) => s.raids.includes(raid.region)).length}/
+          {RAID_LIST.length} 완료.
+        </p>
+        {campaignComplete(s) && (
+          <button className="primary-button" onClick={onReplayEnding}>
+            엔딩 다시 보기
+          </button>
+        )}
         <button
           className="primary-button"
           disabled={!s.visited.includes(1) || s.place !== 'field'}
@@ -922,7 +934,7 @@ export function QuestJournal({
           <QuestCard key={q.id} id={q.id} state={s} onAction={onAction} />
         ),
       )}
-      {s.raids.length === RAID_LIST.length && (
+      {campaignComplete(s) && (
         <div className="ending">
           <h3>여덟 용이 자유를 되찾았어요.</h3>
           <p>친구들과의 산책은 계속됩니다!</p>

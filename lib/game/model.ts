@@ -168,6 +168,7 @@ export type GameState = {
   battle: Battle | null;
   steps: number;
   won: boolean;
+  endingSeen: boolean;
   seconds: number;
   place: Place;
   shopType: 'convenience' | 'armory';
@@ -260,6 +261,7 @@ export function newGame(): GameState {
     battle: null,
     steps: 0,
     won: false,
+    endingSeen: false,
     seconds: 0,
     place: 'field',
     shopType: 'convenience',
@@ -746,6 +748,9 @@ export function questProgress(s: GameState, id: string) {
   const q = QUESTS.find((q) => q.id === id);
   return q ? Math.min(q.goal, s.progress[q.metric] ?? 0) : 0;
 }
+export function campaignComplete(s: Pick<GameState, 'raids'>) {
+  return RAID_LIST.every((raid) => s.raids.includes(raid.region));
+}
 export function actorHp(s: GameState, id: string) {
   return id === 'traveler'
     ? s.hero.hp
@@ -805,7 +810,7 @@ export function combatHits(s: GameState, kind: AttackKind): CombatHit[] {
 }
 export type Action =
   | { type: 'interact'; id: string }
-  | { type: AttackKind | 'flee' | 'expand' | 'pickup' }
+  | { type: AttackKind | 'flee' | 'expand' | 'pickup' | 'ending-seen' }
   | { type: 'item'; id: string; target?: string }
   | { type: 'buy'; id: string; qty?: number }
   | { type: 'sell'; id: string; qty: number }
@@ -855,9 +860,22 @@ export function act(source: GameState, a: Action): Result {
       'quest',
       'party',
       'dress',
+      'ending-seen',
     ].includes(a.type)
   )
     return fail('전투를 마친 뒤 이용할 수 있어요.');
+  if (a.type === 'ending-seen') {
+    if (!campaignComplete(s))
+      return fail('여덟 레이드 보스를 모두 이기면 엔딩이 열려요.');
+    if (s.endingSeen) return { state: source, message: '' };
+    s.won = true;
+    s.endingSeen = true;
+    return {
+      state: s,
+      message:
+        '엔딩을 기록했어요. 전리품 수집과 친구들과의 모험은 계속됩니다! 퀘스트 창에서 엔딩을 다시 볼 수 있어요.',
+    };
+  }
   if (a.type === 'rename') {
     const name = a.name.trim();
     if (!name || name.length > 12 || /[\u0000-\u001f\u007f]/.test(name))
@@ -1335,7 +1353,8 @@ export function act(source: GameState, a: Action): Result {
       s.battle = null;
       message = `승리! +${reward} 코인 · 전리품 ${loot.reduce((n, v) => n + v.qty, 0)}개${en.dragon ? ' · 용 해방! 매력 +2' : ''}${s.drops.length >= 840 ? ' · 바닥에 못 놓은 물품은 판매가로 환전' : ''} · 동행 EXP +${xp}${leveled.length ? ` · 레벨업! ${leveled.join(', ')}` : ''}`;
       event = 'win';
-      if (en.id === 'captain-5') s.won = true;
+      s.won = campaignComplete(s);
+      if (s.won && !source.won) message += ' · 여덟 용 해방! 도시를 구했어요.';
     } else {
       for (let i = 0; i < turnCost; i++) {
         const preferred =
@@ -1743,7 +1762,8 @@ export function unpackSave(text: string): GameState {
     !s.visited.every((n: number) => int(n, 0, REGIONS.length - 1)) ||
     !int(s.steps, 0, 999999999) ||
     !int(s.seconds, 0, 999999999) ||
-    typeof s.won !== 'boolean'
+    typeof s.won !== 'boolean' ||
+    (s.endingSeen !== undefined && typeof s.endingSeen !== 'boolean')
   )
     bad();
   // Move the former village cave without discarding legacy progress or equipment.
@@ -1995,6 +2015,8 @@ export function unpackSave(text: string): GameState {
     talked,
     rescued,
     raids,
+    won: campaignComplete({ raids }),
+    endingSeen: campaignComplete({ raids }) && (s.endingSeen ?? false),
     caveCleared,
     npc: s.npc ?? null,
     shopType: s.shopType ?? 'convenience',

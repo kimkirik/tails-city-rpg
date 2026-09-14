@@ -201,7 +201,7 @@ test('total defeat has a recoverable checkpoint and safe retreat retains enemy d
   s = act(s, { type: 'flee' }).state;
   assert.equal(s.battle, null);
 });
-test('complete six-region campaign can be won with starter and earned rewards', () => {
+test('six original field captains can be defeated with starter and earned rewards without unlocking the raid ending', () => {
   let s = newGame();
   s.region = 5;
   let e = entities(s).find((e) => e.captain)!;
@@ -241,9 +241,9 @@ test('complete six-region campaign can be won with starter and earned rewards', 
       );
     }
   }
-  assert.equal(s.won, true);
+  assert.equal(s.won, false);
   assert.equal(s.defeated.length, 18);
-  assert.equal(unpackSave(packSave(s)).won, true);
+  assert.equal(unpackSave(packSave(s)).won, false);
 });
 test('legacy Kongi saves become Richi without changing progress or other Shibas', () => {
   const legacy = newGame();

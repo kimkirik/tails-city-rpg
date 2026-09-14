@@ -32,6 +32,8 @@ import {
   RAIDS,
   NPCS,
   QUESTS,
+  RAID_LIST,
+  campaignComplete,
   heroStats,
   xpNeeded,
   MAX_LEVEL,
@@ -164,10 +166,14 @@ export default function AdventureHUD({
           <BookOpen size={16} />
           <span>
             {(() => {
+              if (campaignComplete(state))
+                return '도시를 구했어요 · 엔딩 다시 보기';
               const q = QUESTS.find((q) => state.quests[q.id] === 'active');
               return q
                 ? `${q.title} · ${questProgress(state, q.id)}/${q.goal}`
-                : '연두 마을 주민에게 이야기 듣기';
+                : state.raids.length
+                  ? `여덟 용 해방 · ${RAID_LIST.filter((raid) => state.raids.includes(raid.region)).length}/${RAID_LIST.length}`
+                  : '연두 마을 주민에게 이야기 듣기';
             })()}
           </span>
           <ChevronRight size={14} />

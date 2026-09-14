@@ -140,3 +140,21 @@
 @media(max-width:380px){.catalog-dialog{padding:14px}.catalog-dialog .catalog-search{grid-template-columns:minmax(0,1fr) 106px}.grouped-product>.buy-controls{grid-template-columns:minmax(0,1fr) 92px}.buy-quantity{grid-template-columns:28px minmax(0,1fr) 28px}}
 
 .past-quests{border:1px solid #ced9c7;background:#f0f4e9;border-radius:12px;margin:12px 0 20px;padding:0 14px}.past-quests>summary{cursor:pointer;font-size:14px;font-weight:700;padding:14px 0;color:#486740}.past-quests>summary>span{float:right;font-size:12px;font-weight:400;color:#708268}.past-quests .quest-card{background:#fffef8}.past-quests .quest-claimed{opacity:1}.past-quests>div{border-top:1px solid #d9e2d0}.active-quests{margin:18px 0 24px}
+
+/* A compact, replayable epilogue; the world stays paused behind the dialog. */
+.ending-dialog{max-width:580px;padding:0;gap:0;overflow:auto;max-height:92dvh}
+.ending-dialog [data-slot=dialog-close]{background:#fffef5e8;border-radius:50%;padding:5px;z-index:2}
+.ending-art{height:230px;background-size:cover;background-position:50% 48%;position:relative;display:flex;align-items:flex-end;justify-content:center;overflow:hidden;border-radius:19px 19px 0 0}
+.ending-medal{position:absolute;top:20px;left:20px;display:flex;align-items:center;gap:7px;background:#fff8dfee;padding:8px 12px;border-radius:20px;color:#65562f;font-size:10px;font-weight:700;letter-spacing:1px}
+.ending-friends{display:flex;align-items:flex-end;justify-content:center;max-width:100%;padding-bottom:12px;filter:drop-shadow(0 5px 2px #123c3266)}
+.ending-friends .portrait{margin-left:-14px;margin-bottom:7px}
+.ending-copy{padding:24px 26px 10px}
+.ending-copy .eyebrow{display:block;font-size:10px;letter-spacing:2px;color:#83917b;margin-bottom:10px}
+.ending-copy .dialog-title{font-size:26px;line-height:1.3;word-break:keep-all}
+.ending-copy [data-slot=dialog-description]{color:#586d5b;font-size:14px;min-height:72px;word-break:keep-all}
+.ending-record{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:16px 0 2px;font-size:11px;color:#819076;text-align:center}
+.ending-record b{display:block;color:#3b6348;font-size:15px;margin-bottom:5px;overflow-wrap:anywhere}
+.ending-actions{padding:16px 26px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ending-actions>span{font-size:11px;color:#889680}.ending-actions button{white-space:nowrap;min-height:44px}
+@media(max-width:480px){.ending-art{height:195px}.ending-copy{padding:21px 20px 6px}.ending-copy .dialog-title{font-size:22px}.ending-actions{padding:15px 20px 22px;flex-direction:column}.ending-actions button{width:100%}}
+@media(max-height:600px){.ending-art{height:145px}.ending-copy{padding-top:16px}.ending-actions{padding-top:8px}}
