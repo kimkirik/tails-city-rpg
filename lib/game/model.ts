@@ -4,6 +4,13 @@ import {
   type Appearance,
 } from './appearance.ts';
 import { enemyLook, ENEMY_LOOKS } from './enemies.ts';
+import {
+  consumePurchaseRights,
+  refundStatus,
+  retainedPurchases,
+  MAX_PURCHASE_RECORDS,
+  type Purchase,
+} from './purchases.ts';
 export const SIZE = 2048;
 import { REGIONS, isTown, CAMPAIGN_REGIONS } from './regions.ts';
 import {
@@ -159,6 +166,7 @@ export type GameState = {
   coins: number;
   capacity: number;
   bag: Slot[];
+  purchases: Purchase[];
   dogs: Dog[];
   active: string;
   defeated: string[];
@@ -245,6 +253,7 @@ export function newGame(): GameState {
     ...routeSpawn(1),
     coins: 320,
     capacity: 25,
+    purchases: [],
     bag: [
       { item: 'treat', qty: 5 },
       { item: 'potion', qty: 4 },
@@ -418,8 +427,9 @@ export function putItem(s: GameState, id: string, qty = 1): boolean {
     }
   return true;
 }
-function takeItem(s: GameState, id: string, qty = 1) {
+function takeItem(s: GameState, id: string, qty = 1, track = true) {
   if (!Number.isInteger(qty) || qty < 1 || countItem(s, id) < qty) return false;
+  if (track) consumePurchaseRights(s, id, qty);
   for (let i = 0; i < s.bag.length && qty > 0; i++) {
     const slot = s.bag[i];
     if (slot?.item !== id) continue;
@@ -813,6 +823,7 @@ export type Action =
   | { type: AttackKind | 'flee' | 'expand' | 'pickup' | 'ending-seen' }
   | { type: 'item'; id: string; target?: string }
   | { type: 'buy'; id: string; qty?: number }
+  | { type: 'refund'; id: string }
   | { type: 'sell'; id: string; qty: number }
   | { type: 'switch' | 'party' | 'actor' | 'quest'; id: string }
   | { type: 'rename'; name: string }
@@ -823,6 +834,8 @@ export type Result = {
   message: string;
   event?:
     | 'shop'
+    | 'purchase'
+    | 'refund'
     | 'win'
     | 'loss'
     | 'recruit'
@@ -841,7 +854,7 @@ export type Result = {
     title: string;
   };
 };
-export function act(source: GameState, a: Action): Result {
+export function act(source: GameState, a: Action, now = Date.now()): Result {
   const s = structuredClone(source),
     fail = (message: string): Result => ({ state: source, message });
   let message = '',
@@ -854,6 +867,7 @@ export function act(source: GameState, a: Action): Result {
       'interact',
       'expand',
       'buy',
+      'refund',
       'sell',
       'travel',
       'pickup',
@@ -1108,6 +1122,8 @@ export function act(source: GameState, a: Action): Result {
         !CAMPAIGN_REGIONS.every((region) => s.raids.includes(region))
       )
         return fail('다른 다섯 지역의 용을 먼저 해방해 주세요.');
+      for (const id of [s.weapon, s.equipment.clothes, s.equipment.accessory])
+        if (id) consumePurchaseRights(s, id, 1);
       s.battle = {
         enemy: enemyStats(s, e),
         turn: 1,
@@ -1164,6 +1180,53 @@ export function act(source: GameState, a: Action): Result {
       message: `${ITEMS[a.id].name} ${a.qty}개 판매! +${earned.toLocaleString()} 코인${unequipped ? ' · 장착 해제' : ''}`,
     };
   }
+  if (a.type === 'refund') {
+    if (
+      s.place !== 'shop' ||
+      !entities(s).some(
+        (e) => e.kind === 'merchant' && Math.hypot(e.x - s.x, e.y - s.y) <= 110,
+      )
+    )
+      return fail('상점 안의 상인에게 가까이 가세요.');
+    const purchase = s.purchases.find((p) => p.id === a.id);
+    if (!purchase) return fail('구매 기록을 찾을 수 없어요.');
+    const refund = refundStatus(s, purchase, now);
+    if (!refund.available) return fail(refund.reason);
+    const item = ITEMS[purchase.item];
+    if (item.capacity) {
+      s.capacity = purchase.previousCapacity!;
+      const occupied = s.bag.filter(Boolean);
+      s.bag = [...occupied, ...Array(s.capacity - occupied.length).fill(null)];
+    } else {
+      takeItem(s, purchase.item, refund.qty, false);
+      if (item.slot && !countItem(s, purchase.item)) {
+        const equipped =
+          item.slot === 'weapon' ? s.weapon : s.equipment[item.slot];
+        if (equipped === purchase.item) {
+          const previous =
+            purchase.previousEquipment &&
+            countItem(s, purchase.previousEquipment)
+              ? purchase.previousEquipment
+              : null;
+          if (item.slot === 'weapon') s.weapon = previous;
+          else s.equipment[item.slot] = previous;
+        }
+      }
+      s.hero.hp = Math.min(
+        heroStats(s).maxHp,
+        Math.max(0, s.hero.hp - purchase.hpGranted),
+      );
+    }
+    purchase.refunded += refund.qty;
+    purchase.remaining = 0;
+    purchase.hpGranted = 0;
+    s.coins += refund.coins;
+    return {
+      state: s,
+      event: 'refund',
+      message: `${item.name} ${refund.qty}개 구매 취소! ${refund.coins.toLocaleString()} 코인을 전액 돌려받았어요.${item.capacity ? ` 가방은 ${s.capacity}칸으로 돌아갔어요.` : ''}`,
+    };
+  }
   if (a.type === 'buy') {
     const qty = a.qty ?? 1;
     if (!Number.isInteger(qty) || qty < 1 || qty > 999)
@@ -1199,6 +1262,17 @@ export function act(source: GameState, a: Action): Result {
       return fail('가방 확장은 한 번에 하나씩 구입하세요.');
     const total = item.price * qty;
     if (s.coins < total) return fail('코인이 부족해요.');
+    s.purchases = retainedPurchases(s.purchases, now);
+    if (s.purchases.length >= MAX_PURCHASE_RECORDS)
+      return fail('구매 기록이 가득 찼어요. 잠시 후 다시 구입해 주세요.');
+    const previousCapacity = s.capacity,
+      previousHp = s.hero.hp;
+    const previousEquipment =
+      item.slot === 'weapon'
+        ? s.weapon
+        : item.slot
+          ? s.equipment[item.slot]
+          : undefined;
     if (item.capacity) {
       s.bag.push(...Array(item.capacity - s.capacity).fill(null));
       s.capacity = item.capacity;
@@ -1206,8 +1280,21 @@ export function act(source: GameState, a: Action): Result {
       return fail('선택한 수량을 담을 가방 공간이 부족해요.');
     s.coins -= total;
     if (item.slot) equip(s, a.id, item.slot);
+    s.purchases.push({
+      id: crypto.randomUUID(),
+      item: a.id,
+      qty,
+      remaining: qty,
+      refunded: 0,
+      unitPrice: item.price,
+      purchasedAt: now,
+      hpGranted: Math.max(0, s.hero.hp - previousHp),
+      ...(item.capacity ? { previousCapacity } : {}),
+      ...(item.slot ? { previousEquipment } : {}),
+    });
     return {
       state: s,
+      event: 'purchase',
       message: item.capacity
         ? `${item.name} 구입! 기존 아이템을 그대로 보관하고 ${s.capacity}칸으로 확장했어요.`
         : `${item.name} ${qty}개 구입${item.slot ? ' · 1개 장착' : ''}! −${total.toLocaleString()} 코인`,
@@ -1936,6 +2023,46 @@ export function unpackSave(text: string): GameState {
   )
     bad();
   const drops = s.drops ?? [];
+  const purchases: Purchase[] = s.purchases ?? [];
+  if (
+    !Array.isArray(purchases) ||
+    purchases.length > MAX_PURCHASE_RECORDS ||
+    new Set(purchases.map((p) => p?.id)).size !== purchases.length ||
+    purchases.some((p) => {
+      const item = p && ITEMS[p.item];
+      return (
+        !p ||
+        typeof p.id !== 'string' ||
+        !/^[0-9a-f-]{36}$/.test(p.id) ||
+        !item ||
+        item.source !== 'shop' ||
+        !int(p.qty, 1, 999) ||
+        !int(p.remaining, 0, p.qty) ||
+        !int(p.refunded, 0, p.qty - p.remaining) ||
+        !int(p.unitPrice, 1, 99999999) ||
+        p.unitPrice * p.qty > 99999999 ||
+        !int(p.purchasedAt, 1, 8640000000000000) ||
+        !int(p.hpGranted, 0, 99999) ||
+        (item.capacity
+          ? p.qty !== 1 ||
+            !int(p.previousCapacity, 25, item.capacity - 5) ||
+            (p.previousCapacity! - 25) % 5 !== 0
+          : p.previousCapacity !== undefined) ||
+        (item.slot
+          ? p.previousEquipment !== null &&
+            (typeof p.previousEquipment !== 'string' ||
+              !ITEMS[p.previousEquipment] ||
+              ITEMS[p.previousEquipment].slot !== item.slot)
+          : p.previousEquipment !== undefined)
+      );
+    })
+  )
+    bad();
+  const reserved = new Map<string, number>();
+  for (const p of purchases)
+    if (!ITEMS[p.item].capacity)
+      reserved.set(p.item, (reserved.get(p.item) ?? 0) + p.remaining);
+  for (const [id, qty] of reserved) if (qty > countItem(s, id)) bad();
   if (
     !Array.isArray(drops) ||
     drops.length > 850 ||
@@ -2004,6 +2131,7 @@ export function unpackSave(text: string): GameState {
     playerName,
     party,
     drops,
+    purchases,
     place,
     weapon,
     equipment,

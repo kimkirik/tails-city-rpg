@@ -200,10 +200,12 @@ export default function Home() {
       const finishedCampaign =
         !campaignComplete(game.current) && campaignComplete(r.state);
       write(r.state);
-      if (finishedCampaign) {
+      if (finishedCampaign || r.event === 'purchase' || r.event === 'refund') {
         try {
           localStorage.setItem('tails-city-auto', packSave(r.state));
-          setSaveStatus('엔딩 달성 자동 저장됨');
+          setSaveStatus(
+            finishedCampaign ? '엔딩 달성 자동 저장됨' : '거래 자동 저장됨',
+          );
         } catch {
           setSaveStatus('자동 저장 실패 · 파일 저장 권장');
         }

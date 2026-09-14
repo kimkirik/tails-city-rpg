@@ -7,6 +7,7 @@ import {
   type ProductGroup,
 } from '@/lib/game/shop-catalog';
 import { ITEM_ENTRIES } from '@/lib/game/content';
+import PurchaseHistory from './purchase-history';
 import { RARITIES, ITEM_SOURCES } from '@/lib/game/item-catalog';
 import {
   Backpack,
@@ -245,6 +246,7 @@ export function Shop({ state: s, onAction }: Props) {
         ];
   const [category, setCategory] = useState(armory ? 'weapon' : 'supplies');
   const [mode, setMode] = useState('buy');
+  const browsing = mode === 'buy' || mode === 'loot';
   const [search, setSearch] = useState(''),
     [page, setPage] = useState(0),
     [scope, setScope] = useState('available');
@@ -290,10 +292,11 @@ export function Shop({ state: s, onAction }: Props) {
         <TabsList className="shop-mode-tabs" aria-label="상점 거래 선택">
           <TabsTrigger value="buy">사기</TabsTrigger>
           <TabsTrigger value="sell">팔기</TabsTrigger>
+          <TabsTrigger value="refund">구매 취소</TabsTrigger>
           <TabsTrigger value="loot">전리품 도감</TabsTrigger>
         </TabsList>
       </Tabs>
-      {mode !== 'sell' && (
+      {browsing && (
         <div className="shop-toolbar">
           <Tabs
             value={category}
@@ -316,7 +319,7 @@ export function Shop({ state: s, onAction }: Props) {
           </Tabs>
         </div>
       )}
-      {mode !== 'sell' && (
+      {browsing && (
         <div className="catalog-search">
           <Input
             aria-label="상점 아이템 검색"
@@ -351,9 +354,11 @@ export function Shop({ state: s, onAction }: Props) {
         {armory
           ? `공격 ${stats.attack} / 방어 ${stats.defense} / 매력 ${stats.charm}`
           : `가방 ${s.bag.filter(Boolean).length} / ${s.capacity}칸`}
-        {mode !== 'sell' && ` · ${groups.length}종류`}
+        {browsing && ` · ${groups.length}종류`}
       </div>
-      {mode === 'sell' ? (
+      {mode === 'refund' ? (
+        <PurchaseHistory state={s} onAction={onAction} />
+      ) : mode === 'sell' ? (
         <SellItems state={s} onAction={onAction} />
       ) : (
         <div className="shop-items">
@@ -368,7 +373,7 @@ export function Shop({ state: s, onAction }: Props) {
           ))}
         </div>
       )}
-      {mode !== 'sell' && pages > 1 && (
+      {browsing && pages > 1 && (
         <div className="bag-pagination catalog-pagination">
           <button
             aria-label="이전 상품 페이지"
@@ -402,18 +407,20 @@ export function Shop({ state: s, onAction }: Props) {
           </button>
         </div>
       )}
-      {mode !== 'sell' && !items.length && (
+      {browsing && !items.length && (
         <p className="shop-empty">
           조건에 맞는 상품이 없어요. 검색어나 레벨 범위를 바꿔 보세요.
         </p>
       )}
-      <p className="shop-note">
-        {mode === 'sell'
-          ? '두 상점 모두 아이템을 구매가의 50%에 매입합니다(소수점 버림). 확장한 가방은 판매되지 않아요.'
-          : mode === 'loot'
-            ? '추가 전리품 확률: 일반 몬스터 18% · 대장 45%. 레이드 전용: 수문장 10% · 드래곤 80%. 내 레벨과 적 레벨 이하 아이템 중 무작위 1종. 회복 물품은 별도 지급.'
-            : '종류마다 한 카드로 모았어요. 레벨·등급을 고르고 원하는 수량만큼 구입하세요. 가방은 1회 확장 상품이에요.'}
-      </p>
+      {mode !== 'refund' && (
+        <p className="shop-note">
+          {mode === 'sell'
+            ? '두 상점 모두 아이템을 구매가의 50%에 매입합니다(소수점 버림). 확장한 가방은 판매되지 않아요.'
+            : mode === 'loot'
+              ? '추가 전리품 확률: 일반 몬스터 18% · 대장 45%. 레이드 전용: 수문장 10% · 드래곤 80%. 내 레벨과 적 레벨 이하 아이템 중 무작위 1종. 회복 물품은 별도 지급.'
+              : '잘못 구입했다면 10분 안에 구매 취소 탭에서 코인을 돌려받으세요. 가방은 1회 확장 상품이에요.'}
+        </p>
+      )}
     </>
   );
 }
