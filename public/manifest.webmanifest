@@ -12,8 +12,8 @@
   "prefer_related_applications": false,
   "categories": ["games", "entertainment"],
   "icons": [
-    {"src": "/icons/richi-cute-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
-    {"src": "/icons/richi-cute-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
-    {"src": "/icons/richi-cute-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+    {"src": "/icons/richi-anime-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/richi-anime-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/richi-anime-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
   ]
 }
