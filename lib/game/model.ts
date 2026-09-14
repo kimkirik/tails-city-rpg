@@ -5,6 +5,14 @@ import {
 } from './appearance.ts';
 import { enemyLook, ENEMY_LOOKS } from './enemies.ts';
 import {
+  SHOP_LAYOUT_REVISION,
+  SHOP_ENTRY,
+  SHOP_COUNTER,
+  SHOP_EXIT,
+  shopPoint,
+  shopWalkable,
+} from './shop-layout.ts';
+import {
   consumePurchaseRights,
   refundStatus,
   retainedPurchases,
@@ -159,6 +167,7 @@ export type Hero = {
 };
 export type GameState = {
   worldRevision?: 2 | 3;
+  shopLayout?: 2;
   version: 1;
   region: number;
   x: number;
@@ -249,6 +258,7 @@ export function newGame(): GameState {
   return {
     version: 1,
     worldRevision: 3,
+    shopLayout: SHOP_LAYOUT_REVISION,
     region: 1,
     ...routeSpawn(1),
     coins: 320,
@@ -473,12 +483,7 @@ export function walkable(
   place: Place = 'field',
 ) {
   if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
-  if (place === 'shop')
-    return (
-      y >= 780 &&
-      y <= 1875 &&
-      (y <= 1600 ? x >= 280 && x <= 1768 : x >= 870 && x <= 1178)
-    );
+  if (place === 'shop') return shopWalkable(x, y);
   if (place === 'cave')
     return (
       ((x - 1024) / 245) ** 2 + ((y - 410) / 180) ** 2 <= 1 ||
@@ -501,15 +506,13 @@ export function entities(s: GameState): Entity[] {
             id: `counter-${r}`,
             kind: 'merchant',
             name: s.shopType === 'armory' ? '무기상 태오' : '편의점 미로',
-            x: 1024,
-            y: 820,
+            ...SHOP_COUNTER,
           },
           {
             id: `exit-${r}`,
             kind: 'exit',
             name: '상점 출구',
-            x: 1024,
-            y: 1840,
+            ...SHOP_EXIT,
           },
         ];
   const drops: Entity[] = s.drops
@@ -990,8 +993,7 @@ export function act(source: GameState, a: Action, now = Date.now()): Result {
       s.outside = { x: s.x, y: s.y };
       s.place = 'shop';
       s.shopType = e.shopType!;
-      s.x = 1024;
-      s.y = 1660;
+      Object.assign(s, SHOP_ENTRY);
       return {
         state: s,
         message: `${e.name}에 들어왔어요. 위쪽 카운터에 말을 걸어 보세요.`,
@@ -1796,6 +1798,7 @@ export function unpackSave(text: string): GameState {
     (s.worldRevision !== undefined &&
       s.worldRevision !== 2 &&
       s.worldRevision !== 3) ||
+    (s.shopLayout !== undefined && s.shopLayout !== SHOP_LAYOUT_REVISION) ||
     !int(s.region, 0, REGIONS.length - 1) ||
     !Number.isFinite(s.x) ||
     !Number.isFinite(s.y) ||
@@ -2109,6 +2112,9 @@ export function unpackSave(text: string): GameState {
       s.outside = nearestRoutePoint(s.outside.x, s.outside.y, s.region);
     if (!walkable(s.outside.x, s.outside.y, s.region)) bad();
   }
+  // Upgrade indoor coordinates once; the saved outdoor return point is unchanged.
+  if (place === 'shop' && s.shopLayout === undefined)
+    Object.assign(s, shopPoint(s.x, s.y));
   if (!walkable(s.x, s.y, s.region, place)) {
     if (oldRoutes && place === 'field')
       Object.assign(s, nearestRoutePoint(s.x, s.y, s.region));
@@ -2127,6 +2133,7 @@ export function unpackSave(text: string): GameState {
   const result: GameState = {
     ...s,
     worldRevision: 3,
+    shopLayout: SHOP_LAYOUT_REVISION,
     appearance: { ...appearance },
     playerName,
     party,

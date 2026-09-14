@@ -47,6 +47,7 @@ import {
 import TravelerPreview from './traveler-preview';
 import { routeLayout } from '@/lib/game/route-layouts';
 import { MAP_FRAMES, mapAsset } from '@/lib/game/maps';
+import { SHOP_BOUNDS } from '@/lib/game/shop-layout';
 export type AdventureMessage = {
   id: string;
   text: string;
@@ -125,6 +126,9 @@ export default function AdventureHUD({
     cave = state.place === 'cave',
     indoors = state.place === 'shop',
     [fw, fh] = indoors || cave ? [1254, 1254] : MAP_FRAMES[state.region];
+  const mapBounds = indoors
+    ? SHOP_BOUNDS
+    : { x: 0, y: 0, width: SIZE, height: SIZE };
   return (
     <div className="adventure-hud">
       <div className="field-hud-top">
@@ -332,8 +336,8 @@ export default function AdventureHUD({
                         setLayer(null);
                       }}
                       style={{
-                        left: `${(e.x / SIZE) * 100}%`,
-                        top: `${(e.y / SIZE) * 100}%`,
+                        left: `${((e.x - mapBounds.x) / mapBounds.width) * 100}%`,
+                        top: `${((e.y - mapBounds.y) / mapBounds.height) * 100}%`,
                       }}
                     >
                       {e.kind === 'npc'
@@ -364,8 +368,8 @@ export default function AdventureHUD({
                 <i
                   className="map-marker player"
                   style={{
-                    left: `${(state.x / SIZE) * 100}%`,
-                    top: `${(state.y / SIZE) * 100}%`,
+                    left: `${((state.x - mapBounds.x) / mapBounds.width) * 100}%`,
+                    top: `${((state.y - mapBounds.y) / mapBounds.height) * 100}%`,
                   }}
                 />
               </div>

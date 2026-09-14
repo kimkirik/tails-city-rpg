@@ -18,6 +18,7 @@ import {
   type GameState,
 } from './model';
 import { MAP_FRAMES } from './maps';
+import { SHOP_BOUNDS } from './shop-layout';
 import { walkFrame, type WalkMotion } from './motion';
 export type View = {
   width: number;
@@ -180,7 +181,7 @@ export function render(
     ty = h / 2 - v.cy * z;
   const screen = (x: number, y: number) => ({ x: x * z + tx, y: y * z + ty });
   c.imageSmoothingEnabled = false;
-  c.fillStyle = '#78996b';
+  c.fillStyle = indoors ? '#18110d' : '#78996b';
   c.fillRect(0, 0, w, h);
   if (map.complete && map.naturalWidth) {
     c.imageSmoothingEnabled = true;
@@ -191,10 +192,10 @@ export function render(
       0,
       (map.naturalWidth * fw) / 1254,
       (map.naturalHeight * fh) / 1254,
-      tx,
-      ty,
-      SIZE * z,
-      SIZE * z,
+      tx + (indoors ? SHOP_BOUNDS.x * z : 0),
+      ty + (indoors ? SHOP_BOUNDS.y * z : 0),
+      (indoors ? SHOP_BOUNDS.width : SIZE) * z,
+      (indoors ? SHOP_BOUNDS.height : SIZE) * z,
     );
     c.imageSmoothingEnabled = false;
   }

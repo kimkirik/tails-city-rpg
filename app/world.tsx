@@ -13,6 +13,7 @@ import {
   type Action,
 } from '@/lib/game/model';
 import { mapAsset } from '@/lib/game/maps';
+import { SHOP_BOUNDS } from '@/lib/game/shop-layout';
 import { nearestRoutePoint } from '@/lib/game/route-layouts';
 import { findPath } from '@/lib/game/navigation';
 import { KeyboardMovement } from '@/lib/game/keyboard';
@@ -380,8 +381,24 @@ export default function World({
       }
       const visibleW = w / v.zoom,
         visibleH = h / v.zoom;
-      const cx = Math.max(visibleW / 2, Math.min(SIZE - visibleW / 2, s.x)),
-        cy = Math.max(visibleH / 2, Math.min(SIZE - visibleH / 2, s.y));
+      const bounds =
+        s.place === 'shop'
+          ? SHOP_BOUNDS
+          : { x: 0, y: 0, width: SIZE, height: SIZE };
+      const cx =
+        visibleW >= bounds.width
+          ? bounds.x + bounds.width / 2
+          : Math.max(
+              bounds.x + visibleW / 2,
+              Math.min(bounds.x + bounds.width - visibleW / 2, s.x),
+            );
+      const cy =
+        visibleH >= bounds.height
+          ? bounds.y + bounds.height / 2
+          : Math.max(
+              bounds.y + visibleH / 2,
+              Math.min(bounds.y + bounds.height - visibleH / 2, s.y),
+            );
       v.cx += (cx - v.cx) * Math.min(1, dt * 8);
       v.cy += (cy - v.cy) * Math.min(1, dt * 8);
       render(
