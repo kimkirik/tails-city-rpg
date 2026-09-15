@@ -102,7 +102,7 @@ export default function BattleView({
         </span>
         <p
           className={
-            b.enemy.dragon && b.turn % 3 === 0
+            enemyIntent(state).includes('예고')
               ? 'enemy-intent danger'
               : 'enemy-intent'
           }

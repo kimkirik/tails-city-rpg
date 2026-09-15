@@ -27,8 +27,6 @@ import {
   SIZE,
   REGIONS,
   isTown,
-  ITEMS,
-  WEAPONS,
   RAIDS,
   NPCS,
   QUESTS,
@@ -45,6 +43,8 @@ import {
   type Action,
 } from '@/lib/game/model';
 import TravelerPreview from './traveler-preview';
+import EquipmentPanel from './equipment-panel';
+import { equippedIds, EQUIPMENT_SLOTS } from '@/lib/game/equipment-slots';
 import { routeLayout } from '@/lib/game/route-layouts';
 import { MAP_FRAMES, mapAsset } from '@/lib/game/maps';
 import { SHOP_BOUNDS } from '@/lib/game/shop-layout';
@@ -109,6 +109,7 @@ export default function AdventureHUD({
     [name, setName] = useState(state.playerName),
     [lastRead, setLastRead] = useState('');
   const log = useRef<HTMLDivElement>(null);
+  const equipmentAnchor = useRef<HTMLDivElement>(null);
   const latest = messages.at(-1),
     unread = !!latest && latest.id !== lastRead,
     party = partyDogs(state),
@@ -468,6 +469,19 @@ export default function AdventureHUD({
           )}
           {layer === 'status' && (
             <div className="hud-layer-body">
+              <button
+                className="layer-wide-button equipment-jump"
+                onClick={() =>
+                  equipmentAnchor.current?.scrollIntoView({
+                    block: 'start',
+                    behavior: 'smooth',
+                  })
+                }
+              >
+                착용 장비 {equippedIds(state).length}/{EQUIPMENT_SLOTS.length} ·
+                부위별 보기
+                <ChevronRight size={16} />
+              </button>
               <form
                 className="name-editor"
                 onSubmit={(e) => {
@@ -538,25 +552,12 @@ export default function AdventureHUD({
                   매력은 새 친구를 만나는 데 도움이 돼요.
                 </small>
               </div>
-              <div className="status-weapon">
-                <span>장착 무기</span>
-                <strong>
-                  {state.weapon
-                    ? `${ITEMS[state.weapon].name} +${WEAPONS[state.weapon].attack}`
-                    : '맨손'}
-                </strong>
-              </div>
-              <div className="status-weapon">
-                <span>옷 · 액세서리</span>
-                <strong>
-                  {state.equipment.clothes
-                    ? ITEMS[state.equipment.clothes].name
-                    : '미착용'}{' '}
-                  /{' '}
-                  {state.equipment.accessory
-                    ? ITEMS[state.equipment.accessory].name
-                    : '미착용'}
-                </strong>
+              <div ref={equipmentAnchor}>
+                <EquipmentPanel
+                  state={state}
+                  onAction={onAction}
+                  onBag={() => onOpen('bag')}
+                />
               </div>
               <div className="status-party-heading">
                 <strong>동행 {party.length} / 2</strong>

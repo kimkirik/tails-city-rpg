@@ -21,9 +21,13 @@ import {
 } from './model.ts';
 import { ITEM_ENTRIES, GENERATED_BY_LEVEL } from './content.ts';
 
-test('catalog contains exactly 10,000 stable unique named items with usable effects, levels and fair prices', () => {
-  assert.equal(ITEM_ENTRIES.length, 10000);
-  assert.equal(new Set(ITEM_ENTRIES.map(([, i]) => i.name)).size, 10000);
+test('catalog preserves 10,000 items and adds 1,200 unique equipment recipes with usable effects and levels', () => {
+  assert.equal(
+    ITEM_ENTRIES.filter(([id]) => !id.startsWith('outfit-')).length,
+    10000,
+  );
+  assert.equal(ITEM_ENTRIES.length, 11200);
+  assert.equal(new Set(ITEM_ENTRIES.map(([, i]) => i.name)).size, 11200);
   const effects = new Set<string>();
   for (const [id, i] of ITEM_ENTRIES) {
     assert.ok(i.name && i.desc && i.icon, id);

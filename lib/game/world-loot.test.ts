@@ -70,7 +70,7 @@ test('all catalog items have reachable acquisition pools and exclusives cannot b
     s.hero.level = 999;
     assert.equal(act(s, { type: 'buy', id }).state, s, id);
   }
-  assert.deepEqual(counts, { shop: 7988, monster: 1006, raid: 1006 });
+  assert.deepEqual(counts, { shop: 8388, monster: 1406, raid: 1406 });
   for (let level = 1; level <= 100; level++)
     for (const source of ['shop', 'monster', 'raid']) {
       const pool = GENERATED_BY_LEVEL[level].filter(

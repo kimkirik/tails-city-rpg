@@ -430,14 +430,7 @@ test('each defeated mob drops many reachable supplies, captains also drop usable
     s = act(s, { type: 'interact', id: boss.id }).state;
     const victory = act(s, { type: 'attack' });
     assert.ok(victory.loot!.reduce((n, d) => n + d.qty, 0) >= 36);
-    assert.ok(
-      victory.loot!.some(
-        (d) =>
-          ITEMS[d.item].slot === 'weapon' ||
-          ITEMS[d.item].slot === 'clothes' ||
-          ITEMS[d.item].slot === 'accessory',
-      ),
-    );
+    assert.ok(victory.loot!.some((d) => !!ITEMS[d.item].slot));
   }
 });
 test('pickup transfers only available capacity and leaves the rest without duplication', () => {

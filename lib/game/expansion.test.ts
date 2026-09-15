@@ -181,12 +181,17 @@ test('charm gates recruitment without wasting treats; equipment raises real stat
   s = act(s, { type: 'interact', id: 'dog-1-b' }).state;
   assert.equal(s.dogs.length, 2);
   assert.equal(countItem(s, 'treat'), treats - 1);
+  s.hero.level = 3;
   putItem(s, 'ranger');
   s = act(s, { type: 'item', id: 'ranger' }).state;
   assert.equal(heroStats(s).maxHp, 155);
   assert.equal(heroStats(s).defense, 4);
   assert.equal(heroStats(s).charm, 14);
-  assert.equal(s.hero.hp, 155);
+  assert.equal(
+    s.hero.hp,
+    110,
+    'equipping raises maximum HP without free healing',
+  );
 });
 test('boosts stop at20 and poison, healing, revival respect targets and turn costs', () => {
   let s = newGame();

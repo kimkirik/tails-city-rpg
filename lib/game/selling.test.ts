@@ -70,6 +70,7 @@ test('invalid quantities, unavailable items, expanded bags, distant counters and
 test('selling last equipped items removes bonuses and clamps HP without losing remaining gear', () => {
   let s = shop('armory');
   s.coins = 20000;
+  s.hero.level = 10;
   for (const id of ['dragonblade', 'hoodie', 'ribbon']) {
     putItem(s, id);
     s = act(s, { type: 'item', id }).state;
@@ -87,7 +88,7 @@ test('selling last equipped items removes bonuses and clamps HP without losing r
     assert.doesNotThrow(() => unpackSave(packSave(s)));
   }
   assert.equal(s.weapon, null);
-  assert.deepEqual(s.equipment, { clothes: null, accessory: null });
+  assert.ok(Object.values(s.equipment).every((id) => id === null));
   assert.equal(heroStats(s).attack, s.hero.atk);
   assert.equal(heroStats(s).charm, s.hero.charm);
 });

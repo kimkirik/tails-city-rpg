@@ -195,6 +195,38 @@ export default function BattleStage({
           layout.enemySize,
         );
       ctx.restore();
+      if (counter?.move && counterHome) {
+        const phase = elapsed - counter.start;
+        if (phase >= 120 && phase < 680) {
+          const q = clamp((phase - 120) / 560);
+          ctx.save();
+          ctx.globalAlpha = Math.sin(q * Math.PI);
+          ctx.strokeStyle = counter.color ?? '#d4e8ff';
+          ctx.fillStyle = counter.color ?? '#d4e8ff';
+          ctx.shadowColor = counter.color ?? '#d4e8ff';
+          ctx.shadowBlur = 18;
+          ctx.lineWidth = 3 * scale;
+          for (let i = 0; i < 10; i++) {
+            const angle = (i * Math.PI) / 5;
+            const radius = (18 + q * 40) * scale;
+            ctx.beginPath();
+            ctx.arc(
+              counterHome.x + Math.cos(angle) * radius,
+              counterHome.y -
+                layout.dogSize * 0.4 +
+                Math.sin(angle) * radius * 0.6,
+              (3 + (i % 3)) * scale,
+              0,
+              Math.PI * 2,
+            );
+            ctx.stroke();
+          }
+          ctx.font = `bold ${14 * scale}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.fillText(counter.move, enemy.x, enemy.y - layout.enemySize * 0.9);
+          ctx.restore();
+        }
+      }
       if (counter?.breath && counterHome) {
         const phase = elapsed - counter.start;
         if (phase >= 0 && phase < 650) {

@@ -23,6 +23,8 @@ export type BattleCounter = {
   damage: number;
   poisonDamage: number;
   breath: boolean;
+  move?: string;
+  color?: string;
   start: number;
   impact: number;
   end: number;

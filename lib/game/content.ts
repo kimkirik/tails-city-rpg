@@ -1,5 +1,6 @@
 import { createCatalog } from './item-catalog.ts';
-export type EquipmentSlot = 'weapon' | 'clothes' | 'accessory';
+import type { EquipmentSlot } from './equipment-slots.ts';
+export type { EquipmentSlot } from './equipment-slots.ts';
 export type ItemDef = {
   family?: string;
   source: 'shop' | 'monster' | 'raid';
@@ -286,7 +287,9 @@ export const ITEMS = createCatalog(BASE_ITEMS);
 export const ITEM_ENTRIES = Object.entries(ITEMS);
 export const GENERATED_BY_LEVEL = Array.from({ length: 101 }, (_, level) =>
   ITEM_ENTRIES.filter(
-    ([id, item]) => id.startsWith('gear-') && item.level === level,
+    ([id, item]) =>
+      (id.startsWith('gear-') || id.startsWith('outfit-')) &&
+      item.level === level,
   ),
 );
 export const WEAPONS: Record<string, { attack: number }> = Object.fromEntries(

@@ -181,5 +181,56 @@ export function createCatalog(
     }
     catalog[`gear-${String(n + 1).padStart(5, '0')}`] = item;
   }
+  // Append new recipes without changing the original 10,000 item IDs or stats.
+  const outfits = [
+    { slot: 'pants', name: '탐험 바지', icon: '👖' },
+    { slot: 'necklace', name: '발자국 목걸이', icon: '📿' },
+    { slot: 'earrings', name: '별방울 귀걸이', icon: '💎' },
+    { slot: 'cape', name: '바람 망토', icon: '🧣' },
+  ] as const;
+  for (const [index, outfit] of outfits.entries()) {
+    for (let level = 1; level <= 100; level++) {
+      for (let grade = 0; grade < 3; grade++) {
+        const rarity = grade === 0 ? 0 : grade === 1 ? 2 : level >= 60 ? 5 : 4;
+        const item: ItemDef = {
+          family: outfit.name,
+          name: `${ranks[Math.floor((level - 1) / 10)]} ${districts[(level - 1) % 10]} ${['산책', '수호', '용의'][grade]} ${outfit.name}`,
+          icon: outfit.icon,
+          level,
+          rarity,
+          source: (['shop', 'monster', 'raid'] as const)[grade],
+          shop: 'armory',
+          slot: outfit.slot,
+          price: Math.round((80 + index * 10 + level * 15) * (1 + grade * 0.8)),
+          hp:
+            (outfit.slot === 'pants' || outfit.slot === 'cape'
+              ? 8 + level * 2
+              : 4 + level) +
+            grade * 5,
+          ...(outfit.slot === 'pants'
+            ? { defense: 1 + Math.floor(level / 12) + grade }
+            : {}),
+          ...(outfit.slot === 'necklace' || outfit.slot === 'earrings'
+            ? { charm: 2 + Math.floor(level / 6) + grade * 2 }
+            : {}),
+          ...(outfit.slot === 'cape' || outfit.slot === 'earrings'
+            ? { attack: 1 + Math.floor(level / 8) + grade }
+            : {}),
+          desc: '',
+        };
+        item.desc = [
+          `최대 HP +${item.hp}`,
+          item.attack ? `공격 +${item.attack}` : '',
+          item.defense ? `방어 +${item.defense}` : '',
+          item.charm ? `매력 +${item.charm}` : '',
+        ]
+          .filter(Boolean)
+          .join(' · ');
+        catalog[
+          `outfit-${outfit.slot}-${String(level).padStart(3, '0')}-${grade}`
+        ] = item;
+      }
+    }
+  }
   return catalog;
 }

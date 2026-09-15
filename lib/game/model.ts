@@ -5,6 +5,19 @@ import {
 } from './appearance.ts';
 import { enemyLook, ENEMY_LOOKS } from './enemies.ts';
 import {
+  FIELD_MONSTERS,
+  fieldMonsterPositions,
+  monsterMove,
+  MONSTER_MOVES,
+} from './field-monsters.ts';
+import {
+  EQUIPMENT_SLOTS,
+  emptyEquipment,
+  equippedIds,
+  equippedItem,
+  type Equipment,
+} from './equipment-slots.ts';
+import {
   SHOP_LAYOUT_REVISION,
   SHOP_ENTRY,
   SHOP_COUNTER,
@@ -191,7 +204,7 @@ export type GameState = {
   shopType: 'convenience' | 'armory';
   outside?: { x: number; y: number };
   weapon: string | null;
-  equipment: { clothes: string | null; accessory: string | null };
+  equipment: Equipment;
   hero: Hero;
   enemyHealth: Record<string, number>;
   respawnAt: Record<string, number>;
@@ -285,7 +298,7 @@ export function newGame(): GameState {
     place: 'field',
     shopType: 'convenience',
     weapon: null,
-    equipment: { clothes: null, accessory: null },
+    equipment: emptyEquipment(),
     hero: {
       level: 1,
       xp: 0,
@@ -336,9 +349,7 @@ function leadWith(s: GameState, id: string) {
   s.active = id;
 }
 export function heroStats(s: GameState) {
-  const equipped = [s.weapon, s.equipment.clothes, s.equipment.accessory]
-    .filter(Boolean)
-    .map((id) => ITEMS[id!]);
+  const equipped = equippedIds(s).map((id) => ITEMS[id]);
   return {
     maxHp: s.hero.maxHp + equipped.reduce((n, i) => n + (i.hp ?? 0), 0),
     attack: s.hero.atk + equipped.reduce((n, i) => n + (i.attack ?? 0), 0),
@@ -394,7 +405,7 @@ export function entityLevel(s: GameState, e: Entity) {
   if (e.kind === 'enemy') {
     const base = baseEnemyLevel(s, e);
     // Cleared caves remain worthwhile as the traveler outgrows the campaign.
-    const challenge = e.creature !== undefined && s.raids.includes(s.region);
+    const challenge = e.id.startsWith('cave-') && s.raids.includes(s.region);
     return Math.min(MAX_LEVEL, Math.max(base, challenge ? s.hero.level : base));
   }
   if (e.kind === 'dog')
@@ -694,6 +705,15 @@ export function entities(s: GameState): Entity[] {
         }))
       : []),
   ];
+  const wildlife = (FIELD_MONSTERS[r] ?? []).map(
+    ([name, creature], i): Entity => ({
+      id: `mob-${r}-${i + 2}`,
+      kind: 'enemy',
+      name,
+      creature,
+      ...fieldMonsterPositions(r)[i],
+    }),
+  );
   return list
     .map((e) => {
       const key =
@@ -740,6 +760,7 @@ export function entities(s: GameState): Entity[] {
           }
         : e,
     )
+    .concat(wildlife)
     .filter(
       (e) =>
         (isTown(r)
@@ -789,6 +810,8 @@ export type CounterHit = {
   damage: number;
   poisonDamage: number;
   breath: boolean;
+  move?: string;
+  color?: string;
 };
 export function combatHits(s: GameState, kind: AttackKind): CombatHit[] {
   if (kind === 'guard') return [];
@@ -827,6 +850,7 @@ export type Action =
   | { type: 'item'; id: string; target?: string }
   | { type: 'buy'; id: string; qty?: number }
   | { type: 'refund'; id: string }
+  | { type: 'unequip'; slot: EquipmentSlot }
   | { type: 'sell'; id: string; qty: number }
   | { type: 'switch' | 'party' | 'actor' | 'quest'; id: string }
   | { type: 'rename'; name: string }
@@ -839,6 +863,7 @@ export type Result = {
     | 'shop'
     | 'purchase'
     | 'refund'
+    | 'equipment'
     | 'win'
     | 'loss'
     | 'recruit'
@@ -871,6 +896,7 @@ export function act(source: GameState, a: Action, now = Date.now()): Result {
       'expand',
       'buy',
       'refund',
+      'unequip',
       'sell',
       'travel',
       'pickup',
@@ -1124,8 +1150,7 @@ export function act(source: GameState, a: Action, now = Date.now()): Result {
         !CAMPAIGN_REGIONS.every((region) => s.raids.includes(region))
       )
         return fail('다른 다섯 지역의 용을 먼저 해방해 주세요.');
-      for (const id of [s.weapon, s.equipment.clothes, s.equipment.accessory])
-        if (id) consumePurchaseRights(s, id, 1);
+      for (const id of equippedIds(s)) if (id) consumePurchaseRights(s, id, 1);
       s.battle = {
         enemy: enemyStats(s, e),
         turn: 1,
@@ -1169,7 +1194,7 @@ export function act(source: GameState, a: Action, now = Date.now()): Result {
         s.weapon = null;
         unequipped = true;
       }
-      for (const slot of ['clothes', 'accessory'] as const)
+      for (const slot of Object.keys(s.equipment) as (keyof Equipment)[])
         if (s.equipment[slot] === a.id) {
           s.equipment[slot] = null;
           unequipped = true;
@@ -1302,6 +1327,20 @@ export function act(source: GameState, a: Action, now = Date.now()): Result {
         : `${item.name} ${qty}개 구입${item.slot ? ' · 1개 장착' : ''}! −${total.toLocaleString()} 코인`,
     };
   }
+  if (a.type === 'unequip') {
+    if (!EQUIPMENT_SLOTS.some((slot) => slot.id === a.slot))
+      return fail('장비 부위를 확인해 주세요.');
+    const id = equippedItem(s, a.slot);
+    if (!id) return fail('이 부위에 장착한 장비가 없어요.');
+    if (a.slot === 'weapon') s.weapon = null;
+    else s.equipment[a.slot] = null;
+    s.hero.hp = Math.min(s.hero.hp, heroStats(s).maxHp);
+    return {
+      state: s,
+      event: 'equipment',
+      message: `${ITEMS[id].name} 장착 해제. 장비는 가방에 보관되어 있어요.`,
+    };
+  }
   if (a.type === 'item') {
     const item = ITEMS[a.id];
     if (!item || !countItem(s, a.id))
@@ -1313,8 +1352,14 @@ export function act(source: GameState, a: Action, now = Date.now()): Result {
       return fail('전투 중에는 동행 중인 동료만 회복할 수 있어요.');
     if (item.slot) {
       if (s.battle) return fail('장비는 전투 전에 장착하세요.');
+      if (s.hero.level < item.level)
+        return fail(`여행자 Lv.${item.level}부터 장착할 수 있어요.`);
       equip(s, a.id, item.slot);
-      return { state: s, message: `${item.name} 장착! ${item.desc}` };
+      return {
+        state: s,
+        event: 'equipment',
+        message: `${item.name} 장착! ${item.desc}`,
+      };
     }
     if (a.id === 'treat')
       return fail(
@@ -1525,11 +1570,10 @@ export function act(source: GameState, a: Action, now = Date.now()): Result {
   return { state: s, message, event, loot, combat };
 }
 function equip(s: GameState, id: string, slot: EquipmentSlot) {
-  const oldMax = heroStats(s).maxHp;
   if (slot === 'weapon') s.weapon = id;
   else s.equipment[slot] = id;
-  const max = heroStats(s).maxHp;
-  s.hero.hp = Math.min(max, s.hero.hp + Math.max(0, max - oldMax));
+  // Changing equipment raises capacity, never current HP (no re-equip healing).
+  s.hero.hp = Math.min(heroStats(s).maxHp, s.hero.hp);
 }
 export function enemyStats(s: GameState, e: Entity): Enemy {
   const level = entityLevel(s, e),
@@ -1565,14 +1609,24 @@ export function enemyStats(s: GameState, e: Entity): Enemy {
 export function enemyIntent(s: GameState) {
   const b = s.battle;
   if (!b) return '';
-  return b.enemy.dragon && b.turn % 3 === 0
-    ? `${RAIDS[s.region].move} 예고 · 강한 공격!`
+  if (b.enemy.dragon && b.turn % 3 === 0)
+    return `${RAIDS[s.region].move} 예고 · 방어 추천!`;
+  const move = monsterMove(b.enemy.creature, b.turn);
+  if (move)
+    return `${move.name} 예고 · ${move.poison ? '중독 주의 · ' : ''}방어 추천!`;
+  const next =
+    b.enemy.creature === undefined
+      ? undefined
+      : MONSTER_MOVES[b.enemy.creature];
+  return next
+    ? `일반 반격 · ${next.name}까지 ${next.every - (b.turn % next.every)}턴`
     : '일반 반격';
 }
 function enemyTurn(s: GameState, id: string, multiplier: number): CounterHit {
   const b = s.battle!,
     who = id === 'traveler' ? s.hero : s.dogs.find((d) => d.id === id)!,
-    breath = !!b.enemy.dragon && b.turn % 3 === 0;
+    breath = !!b.enemy.dragon && b.turn % 3 === 0,
+    move = monsterMove(b.enemy.creature, b.turn);
   const defense =
     id === 'traveler' ? heroStats(s).defense : Math.floor((who as Dog).level);
   const damage = Math.min(
@@ -1580,25 +1634,30 @@ function enemyTurn(s: GameState, id: string, multiplier: number): CounterHit {
     Math.max(
       1,
       Math.round(
-        Math.max(2, b.enemy.atk * (breath ? 1.9 : 1) - defense) * multiplier,
+        Math.max(
+          2,
+          b.enemy.atk * (breath ? 1.9 : (move?.multiplier ?? 1)) - defense,
+        ) * multiplier,
       ),
     ),
   );
   who.hp -= damage;
-  if (
-    ((breath && s.region === 2) ||
-      (b.enemy.creature === 3 && b.turn % 2 === 0)) &&
-    who.hp > 0
-  )
+  if (((breath && s.region === 2) || move?.poison) && who.hp > 0)
     who.poison = true;
   const poisonDamage = who.poison ? Math.min(who.hp, 4) : 0;
   who.hp -= poisonDamage;
   b.log.push(
-    `${b.enemy.name} ${breath ? RAIDS[s.region].move : '반격'}! ${actorName(s, id)} −${damage}${poisonDamage ? ` · 중독 −${poisonDamage}` : ''} HP`,
+    `${b.enemy.name} ${breath ? RAIDS[s.region].move : (move?.name ?? '반격')}! ${actorName(s, id)} −${damage}${poisonDamage ? ` · 중독 −${poisonDamage}` : ''} HP`,
   );
   b.turn++;
   b.cooldown = Math.max(0, b.cooldown - 1);
-  return { actorId: id, damage, poisonDamage, breath };
+  return {
+    actorId: id,
+    damage,
+    poisonDamage,
+    breath,
+    ...(move ? { move: move.name, color: move.color } : {}),
+  };
 }
 // Chance of one bonus item from each exclusive pool, independent of staples.
 export const DROP_CHANCES = {
@@ -1651,7 +1710,7 @@ export function lootForEnemy(s: GameState, en: Enemy) {
     DROP_CHANCES[
       en.dragon
         ? 'dragon'
-        : en.creature !== undefined
+        : en.id.startsWith('cave-')
           ? 'guardian'
           : en.captain
             ? 'captain'
@@ -1663,7 +1722,8 @@ export function lootForEnemy(s: GameState, en: Enemy) {
       ([id, item]) =>
         item.source === source &&
         item.level <= ceiling &&
-        (!id.startsWith('gear-') || item.level >= ceiling - 2),
+        (!(id.startsWith('gear-') || id.startsWith('outfit-')) ||
+          item.level >= ceiling - 2),
     );
     const chosen = pool[Math.floor(random() * pool.length)];
     if (chosen) rewards.push({ item: chosen[0], qty: 1 });
@@ -1932,8 +1992,19 @@ export function unpackSave(text: string): GameState {
     !party.every((id: unknown) => s.dogs.some((d: Dog) => d.id === id))
   )
     bad();
+  if (
+    s.equipment !== undefined &&
+    (!s.equipment ||
+      typeof s.equipment !== 'object' ||
+      Array.isArray(s.equipment) ||
+      Object.keys(s.equipment).some(
+        (key) =>
+          key === 'weapon' || !EQUIPMENT_SLOTS.some((slot) => slot.id === key),
+      ))
+  )
+    bad();
   const weapon = s.weapon ?? null,
-    equipment = s.equipment ?? defaults.equipment,
+    equipment = { ...emptyEquipment(), ...(s.equipment ?? {}) },
     hero = { ...(s.hero ?? defaults.hero) };
   if (hero.level === undefined && hero.xp === undefined) {
     hero.level = Math.max(1, ...s.dogs.map((d: Dog) => d.level));
@@ -1959,7 +2030,7 @@ export function unpackSave(text: string): GameState {
     bad();
   for (const [slot, id] of Object.entries({ weapon, ...equipment }))
     if (
-      !['weapon', 'clothes', 'accessory'].includes(slot) ||
+      !EQUIPMENT_SLOTS.some((part) => part.id === slot) ||
       (id !== null &&
         (typeof id !== 'string' ||
           !Object.hasOwn(ITEMS, id) ||
@@ -1978,7 +2049,7 @@ export function unpackSave(text: string): GameState {
     Object.entries(value).length <= REGIONS.length * 12 &&
     Object.entries(value).every(
       ([id, n]) =>
-        /^(enemy-(?:[0-9]|1[01])-[01]|captain-(?:[0-9]|1[01])|mob-(?:[0-9]|1[01])-[01]|cave-(?:[0-9]|1[01])-[012]|dragon-(?:[0-9]|1[01]))$/.test(
+        /^(enemy-(?:[0-9]|1[01])-[01]|captain-(?:[0-9]|1[01])|mob-(?:[0-9]|1[01])-[0-3]|cave-(?:[0-9]|1[01])-[012]|dragon-(?:[0-9]|1[01]))$/.test(
           id,
         ) && int(n, 0, 999999999),
     );

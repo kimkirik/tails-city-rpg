@@ -7,6 +7,7 @@ import {
   type ProductGroup,
 } from '@/lib/game/shop-catalog';
 import { ITEM_ENTRIES } from '@/lib/game/content';
+import { EQUIPMENT_SLOTS, equippedIds } from '@/lib/game/equipment-slots';
 import PurchaseHistory from './purchase-history';
 import { RARITIES, ITEM_SOURCES } from '@/lib/game/item-catalog';
 import {
@@ -81,11 +82,7 @@ export function Inventory({
     item = slot ? ITEMS[slot.item] : null,
     stats = heroStats(s),
     targets = s.battle ? partyDogs(s) : s.dogs;
-  const equipped =
-    slot &&
-    (s.weapon === slot.item ||
-      s.equipment.clothes === slot.item ||
-      s.equipment.accessory === slot.item);
+  const equipped = slot && equippedIds(s).includes(slot.item);
   return (
     <>
       <div className="bag-toolbar">
@@ -164,6 +161,8 @@ export function Inventory({
               <p>{item.desc}</p>
               {item.slot ? (
                 <p className="equipment-tag">
+                  {EQUIPMENT_SLOTS.find((part) => part.id === item.slot)?.name}{' '}
+                  ·{' '}
                   {equipped
                     ? '현재 장착 중'
                     : '보유 장비 · 장착하면 능력치가 바뀝니다'}
@@ -193,8 +192,17 @@ export function Inventory({
               )}
               <button
                 className="primary-button"
-                disabled={!!equipped || !!(item.slot && s.battle)}
+                disabled={
+                  !!(
+                    item.slot &&
+                    (s.battle || (!equipped && s.hero.level < item.level))
+                  )
+                }
                 onClick={() => {
+                  if (equipped && item.slot) {
+                    onAction({ type: 'unequip', slot: item.slot });
+                    return;
+                  }
                   const result = onAction({
                     type: 'item',
                     id: slot.item,
@@ -206,8 +214,10 @@ export function Inventory({
               >
                 {item.slot
                   ? equipped
-                    ? '장착 중'
-                    : '장착하기'
+                    ? '장착 해제'
+                    : s.hero.level < item.level
+                      ? `Lv.${item.level}부터 장착`
+                      : '장착하기'
                   : s.battle
                     ? '사용하기 · 1턴'
                     : '사용하기'}
@@ -234,11 +244,7 @@ export function Inventory({
 export function Shop({ state: s, onAction }: Props) {
   const armory = s.shopType === 'armory',
     categories = armory
-      ? [
-          ['weapon', '무기'],
-          ['clothes', '옷'],
-          ['accessory', '액세서리'],
-        ]
+      ? EQUIPMENT_SLOTS.map((slot) => [slot.id, slot.name])
       : [
           ['supplies', '회복·간식'],
           ['bags', '가방'],
@@ -663,10 +669,7 @@ function SellItem({ id, state: s, onAction }: Props & { id: string }) {
     price = sellPrice(id);
   const qty = quantity === '' ? 0 : Math.min(Number(quantity), owned);
   const valid = Number.isInteger(qty) && qty > 0;
-  const equipped =
-    s.weapon === id ||
-    s.equipment.clothes === id ||
-    s.equipment.accessory === id;
+  const equipped = equippedIds(s).includes(id);
   return (
     <article className="shop-item shop-sell-item">
       <span aria-hidden="true">{item.icon}</span>
